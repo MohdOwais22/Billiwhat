@@ -1,6 +1,6 @@
 {
-  "name": "Whatsbill",
-  "description": "Production Web Dashboard for Indian distributors and wholesalers — Bill. Collect. Reconcile.",
+  "name": "WhatsBill",
+  "description": "AI Business Assistant for Indian Distributors — Bill. Collect. Reconcile.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

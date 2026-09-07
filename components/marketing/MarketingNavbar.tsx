@@ -11,10 +11,12 @@ import { APP_NAME, getBrandInitials } from '@/config/brand';
 
 interface MarketingNavbarProps {
   onOpenApp: () => void;
-  onOpenDemoModal: () => void;
+  onOpenAuthModal: () => void;
+  session: any;
+  isSessionLoading: boolean;
 }
 
-export function MarketingNavbar({ onOpenApp, onOpenDemoModal }: MarketingNavbarProps) {
+export function MarketingNavbar({ onOpenApp, onOpenAuthModal, session, isSessionLoading }: MarketingNavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -127,24 +129,51 @@ export function MarketingNavbar({ onOpenApp, onOpenDemoModal }: MarketingNavbarP
           </nav>
 
           {/* Right CTA Group */}
-          <div className="hidden sm:flex items-center gap-2.5">
-            <button
-              onClick={onOpenApp}
-              className="px-3.5 py-2 text-xs lg:text-sm font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-              id="nav-login-btn"
-            >
-              <LayoutDashboard className="w-4 h-4 text-emerald-600" />
-              <span>Open Dashboard</span>
-            </button>
+          <div className="hidden sm:flex items-center gap-2.5 min-h-[40px]">
+            {!isSessionLoading && (
+              <>
+                {session ? (
+                  <>
+                    <button
+                      onClick={onOpenApp}
+                      className="px-3.5 py-2 text-xs lg:text-sm font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                      id="nav-dashboard-btn"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                      <span>Dashboard</span>
+                    </button>
 
-            <button
-              onClick={onOpenDemoModal}
-              className="px-4 py-2 text-xs lg:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-xs hover:shadow-sm flex items-center gap-1.5 cursor-pointer"
-              id="nav-start-free-btn"
-            >
-              <span>Start free</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+                    <button
+                      onClick={onOpenApp}
+                      className="px-4 py-2 text-xs lg:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-xs hover:shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      id="nav-start-free-btn"
+                    >
+                      <span>Start free</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={onOpenAuthModal}
+                      className="px-3.5 py-2 text-xs lg:text-sm font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                      id="nav-login-btn"
+                    >
+                      <span>Login</span>
+                    </button>
+
+                    <button
+                      onClick={onOpenAuthModal}
+                      className="px-4 py-2 text-xs lg:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-xs hover:shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      id="nav-start-free-btn"
+                    >
+                      <span>Start free</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+              </>
+            )}
           </div>
 
           {/* Mobile Hamburger Toggle */}
@@ -189,29 +218,62 @@ export function MarketingNavbar({ onOpenApp, onOpenDemoModal }: MarketingNavbarP
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenApp();
-                }}
-                className="w-full py-3 px-4 text-sm font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
-                id="mobile-menu-open-dashboard"
-              >
-                <LayoutDashboard className="w-4 h-4 text-emerald-600" />
-                <span>Open Dashboard</span>
-              </button>
+              {!isSessionLoading && (
+                <>
+                  {session ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onOpenApp();
+                        }}
+                        className="w-full py-3 px-4 text-sm font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer text-center"
+                        id="mobile-menu-dashboard"
+                      >
+                        <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                        <span>Dashboard</span>
+                      </button>
 
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenDemoModal();
-                }}
-                className="w-full py-3 px-4 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                id="mobile-menu-start-free"
-              >
-                <span>Start free</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                      <button
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onOpenApp();
+                        }}
+                        className="w-full py-3 px-4 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                        id="mobile-menu-start-free"
+                      >
+                        <span>Start free</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onOpenAuthModal();
+                        }}
+                        className="w-full py-3 px-4 text-sm font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer text-center"
+                        id="mobile-menu-login"
+                      >
+                        <span>Login</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onOpenAuthModal();
+                        }}
+                        className="w-full py-3 px-4 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                        id="mobile-menu-start-free"
+                      >
+                        <span>Start free</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </>

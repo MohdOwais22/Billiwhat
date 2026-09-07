@@ -570,7 +570,33 @@ export async function createNewInvoice(params: {
   }
 
   const totalAmount = params.totalAmount || (subtotal + taxTotal);
-  const invNumber = params.invoiceNumber || `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+  
+  let invNumber = params.invoiceNumber;
+  if (!invNumber) {
+    // Concurrency-safe sequential invoice numbering: query the latest invoice from Supabase
+    const { data: latestInv, error: latestError } = await client
+      .from('invoices')
+      .select('invoice_number')
+      .eq('organization_id', memberData.organization_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!latestError && latestInv?.invoice_number) {
+      // Parse the latest invoice number (e.g. "INV-1004" -> 1005, "WB/26-27/1001" -> "WB/26-27/1002")
+      const numMatch = latestInv.invoice_number.match(/\d+$/);
+      if (numMatch) {
+        const lastNum = parseInt(numMatch[0], 10);
+        const nextNumStr = String(lastNum + 1).padStart(numMatch[0].length, '0');
+        invNumber = latestInv.invoice_number.substring(0, latestInv.invoice_number.length - numMatch[0].length) + nextNumStr;
+      }
+    }
+
+    if (!invNumber) {
+      // Fallback if no invoices exist yet
+      invNumber = `INV-1001`;
+    }
+  }
 
   const { data: invoice, error: invError } = await client.from('invoices').insert({
     organization_id: memberData.organization_id,

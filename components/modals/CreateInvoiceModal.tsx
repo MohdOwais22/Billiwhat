@@ -22,7 +22,7 @@ export function CreateInvoiceModal({
   products,
 }: CreateInvoiceModalProps) {
   const [customerId, setCustomerId] = useState(customers[0]?.id || '');
-  const [invoiceNumber, setInvoiceNumber] = useState(`WB/26-27/${Math.floor(1000 + Math.random() * 9000)}`);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(
     new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -51,7 +51,7 @@ export function CreateInvoiceModal({
 
       await createNewInvoice({
         customerId,
-        invoiceNumber,
+        invoiceNumber: invoiceNumber.trim() || undefined,
         invoiceDate,
         dueDate,
         subtotal,
@@ -101,13 +101,13 @@ export function CreateInvoiceModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Invoice Number *
+                Invoice Number <span className="text-slate-400 font-normal">(Leave blank for sequential auto-gen)</span>
               </label>
               <input
                 type="text"
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                required
+                placeholder="e.g. WB/26-27/001"
                 className="w-full px-3 py-2 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 id="create-invoice-num-input"
               />

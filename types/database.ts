@@ -40,13 +40,15 @@ export type Product = {
   organization_id: string;
   name: string;
   sku?: string | null;
+  hsn_code?: string | null;
   hsn?: string | null;
   unit?: string | null;
   stock_quantity: number;
   min_stock_alert: number;
   unit_price: number;
   purchase_price?: number | null;
-  tax_rate: number;
+  gst_rate: number;
+  tax_rate?: number;
   created_at: string;
   updated_at?: string;
 };
@@ -86,12 +88,15 @@ export type InvoiceItem = {
   invoice_id: string;
   product_id?: string | null;
   description: string;
+  hsn_code?: string | null;
   hsn?: string | null;
   quantity: number;
   unit_price: number;
-  tax_rate: number;
-  tax_amount: number;
-  total: number;
+  gst_rate: number;
+  tax_rate?: number;
+  tax_amount?: number;
+  amount: number;
+  total?: number;
   created_at: string;
 };
 

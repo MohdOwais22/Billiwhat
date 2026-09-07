@@ -42,7 +42,6 @@ import { CreateInvoiceModal } from '@/components/modals/CreateInvoiceModal';
 import { AddCustomerModal } from '@/components/modals/AddCustomerModal';
 import { AddProductModal } from '@/components/modals/AddProductModal';
 import { WhatsAppReminderModal } from '@/components/modals/WhatsAppReminderModal';
-import { AuthModal } from '@/components/modals/AuthModal';
 
 import { getSupabaseClient } from '@/lib/supabase/client';
 
@@ -108,7 +107,6 @@ export default function DashboardPage() {
     CollectionQueueItem | (InvoiceWithDetails & { customerName?: string; outstandingAmount?: number }) | null
   >(null);
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const dateRange = calculateDateRange(period, customRange);
 
@@ -232,7 +230,6 @@ export default function DashboardPage() {
               onSearch={(query) => console.log('Global search query:', query)}
               dataSource={dashboardData?.dataSource}
               userEmail={dashboardData?.userEmail}
-              onOpenAuthModal={() => setIsAuthModalOpen(true)}
             />
 
             {/* Main Content Area */}
@@ -453,16 +450,6 @@ export default function DashboardPage() {
                   setWhatsAppItem(null);
                 }}
                 onSent={loadData}
-              />
-            )}
-
-            {isAuthModalOpen && (
-              <AuthModal
-                isOpen={isAuthModalOpen}
-                onClose={() => setIsAuthModalOpen(false)}
-                currentUserEmail={dashboardData?.userEmail}
-                isLiveActive={dashboardData?.dataSource === 'supabase_live'}
-                onAuthSuccess={loadData}
               />
             )}
           </div>

@@ -1,261 +1,316 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Lock, Mail, Database, CheckCircle2, AlertCircle, LogIn, UserPlus, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { X, Phone, Lock, MessageSquare, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { APP_NAME, getBrandInitials } from '@/config/brand';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUserEmail?: string;
-  isLiveActive?: boolean;
-  onAuthSuccess: () => void;
+  onSuccess?: () => void;
 }
 
-export function AuthModal({
-  isOpen,
-  onClose,
-  currentUserEmail,
-  isLiveActive,
-  onAuthSuccess,
-}: AuthModalProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+  const router = useRouter();
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(
+    !isSupabaseConfigured
+      ? 'Supabase Authentication is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+      : null
+  );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const client = getSupabaseClient();
+  const formatPhone = (input: string) => {
+    const cleaned = input.replace(/\D/g, '');
+    if (cleaned.startsWith('91') && cleaned.length > 10) {
+      return '+' + cleaned;
+    }
+    if (cleaned.length === 10) {
+      return '+91' + cleaned;
+    }
+    return input.startsWith('+') ? input : '+' + cleaned;
+  };
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!client) {
-      setErrorMsg('Supabase is not configured in this environment.');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!isSupabaseConfigured) {
+      setErrorMsg('Supabase Authentication is not configured in this environment.');
       return;
     }
-    if (!email || !password) {
-      setErrorMsg('Please enter both email and password.');
+
+    const formatted = formatPhone(phone);
+    if (!formatted || formatted.length < 12) {
+      setErrorMsg('Please enter a valid 10-digit mobile number.');
       return;
     }
 
     setIsLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
-      if (isSignUp) {
-        const { error, data } = await client.auth.signUp({
-          email,
-          password,
-        });
-        if (error) throw error;
-        if (data.session) {
-          setSuccessMsg('Account created and signed in successfully!');
-          setTimeout(() => {
-            onAuthSuccess();
-            onClose();
-          }, 800);
-        } else {
-          setSuccessMsg('Account created! If confirmation is required, please check your email.');
-        }
-      } else {
-        const { error } = await client.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        setSuccessMsg('Signed in successfully!');
-        setTimeout(() => {
-          onAuthSuccess();
-          onClose();
-        }, 800);
+      const client = getSupabaseClient();
+      if (!client) {
+        throw new Error('Supabase client authentication is unavailable.');
       }
+
+      const { error } = await client.auth.signInWithOtp({
+        phone: formatted,
+        options: {
+          channel: 'whatsapp',
+        },
+      });
+
+      if (error) {
+        const { error: fallbackErr } = await client.auth.signInWithOtp({
+          phone: formatted,
+        });
+        if (fallbackErr) throw fallbackErr;
+      }
+
+      setStep('otp');
+      setSuccessMsg(`WhatsApp verification code sent to ${formatted}`);
     } catch (err: any) {
-      console.error('Supabase authentication error:', err);
-      setErrorMsg(err?.message || 'Authentication failed. Please check credentials.');
+      console.error('WhatsApp OTP Send Error:', err);
+      setErrorMsg(err?.message || 'Failed to send WhatsApp verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignOut = async () => {
-    if (!client) return;
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!otp || otp.length < 6) {
+      setErrorMsg('Please enter the full 6-digit verification code.');
+      return;
+    }
+
     setIsLoading(true);
+
     try {
-      await client.auth.signOut();
-      setSuccessMsg('Signed out.');
+      const client = getSupabaseClient();
+      if (!client) {
+        throw new Error('Supabase client authentication is unavailable.');
+      }
+
+      const formatted = formatPhone(phone);
+      const { data, error } = await client.auth.verifyOtp({
+        phone: formatted,
+        token: otp,
+        type: 'sms',
+      });
+
+      if (error) throw error;
+      if (!data?.user) throw new Error('Authentication succeeded but no user session was returned.');
+
+      // Check whether user belongs to an organization
+      const { data: member } = await client
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', data.user.id)
+        .limit(1)
+        .maybeSingle();
+
+      setSuccessMsg('Authentication successful! Directing to application...');
+
+      if (onSuccess) {
+        onSuccess();
+      }
+
       setTimeout(() => {
-        onAuthSuccess();
         onClose();
+        if (member?.organization_id) {
+          router.push('/dashboard');
+        } else {
+          router.push('/onboarding?next=/dashboard');
+        }
+        router.refresh();
       }, 600);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to sign out.');
+      console.error('WhatsApp OTP Verification Error:', err);
+      setErrorMsg(err?.message || 'Invalid or expired verification code.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-        <div className="p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold">
-                {isLiveActive ? 'Cloud Account & Organization' : 'Supabase Cloud Sync'}
-              </h2>
-              <p className="text-xs text-slate-300">
-                {isLiveActive ? 'Connected to live database' : 'Sign in to access your organization records'}
-              </p>
-            </div>
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150"
+      id="auth-modal-backdrop"
+    >
+      <div
+        className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden text-slate-900 font-sans relative animate-in zoom-in-95 duration-150"
+        id="auth-modal-container"
+      >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition z-10 cursor-pointer flex items-center justify-center min-w-[40px] min-h-[40px]"
+          id="auth-modal-close-btn"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Modal Header */}
+        <div className="px-6 py-6 border-b border-slate-100 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center mx-auto font-extrabold text-xl shadow-xs mb-3">
+            {getBrandInitials()}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-slate-400 hover:text-white rounded-lg transition"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <h3 className="text-lg font-extrabold text-slate-900" id="auth-modal-title">
+            {step === 'phone' ? 'Log in or Sign up' : 'Enter Verification Code'}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            {step === 'phone'
+              ? `Access your secure ${APP_NAME} web panel`
+              : 'Please enter the 6-digit WhatsApp OTP sent to your number'}
+          </p>
         </div>
 
-        <div className="p-6 space-y-4">
-          {isLiveActive ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-xs font-bold text-emerald-900">Signed In (Live Cloud Active)</h3>
-                  <p className="text-xs text-emerald-700 mt-0.5 font-mono break-all">
-                    {currentUserEmail || 'Active session'}
-                  </p>
-                </div>
-              </div>
-              <p className="text-[11px] text-emerald-800">
-                All invoices, payments, and customer ledger entries are synchronizing directly with your Supabase organization.
-              </p>
-              <button
-                onClick={handleSignOut}
-                disabled={isLoading}
-                className="w-full py-2 px-3 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg transition flex items-center justify-center gap-2"
-                id="sign-out-btn"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          ) : (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-slate-600">
-              <Database className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-slate-800 font-medium">Connect your Supabase account. </span>
-                <span>Sign in below to connect your real Supabase company ledger.</span>
-              </div>
+        {/* Modal Body */}
+        <form onSubmit={step === 'phone' ? handleSendOtp : handleVerifyOtp} className="p-6 space-y-4">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs flex gap-2" id="auth-modal-error">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
-          {!isLiveActive && (
-            <form onSubmit={handleAuth} className="space-y-3.5">
-              {errorMsg && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
+          {successMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-xs flex gap-2" id="auth-modal-success">
+              <MessageSquare className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{successMsg}</span>
+            </div>
+          )}
 
-              {successMsg && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{successMsg}</span>
-                </div>
-              )}
-
+          {step === 'phone' ? (
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email Address
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  WhatsApp Mobile Number
                 </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3.5 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-500 font-semibold text-xs select-none">
+                    +91
+                  </span>
                   <input
-                    type="email"
+                    type="tel"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="finance@yourcompany.com"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                    id="auth-email-input"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                    id="auth-password-input"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    disabled={isLoading}
+                    placeholder="98765 43210"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3 py-2 text-sm rounded-r-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition"
+                    id="auth-modal-phone-input"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading || !isSupabaseConfigured}
-                className="w-full py-2.5 px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
-                id="submit-auth-btn"
+                disabled={isLoading}
+                className="w-full py-3 px-4 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-600/50 transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                id="auth-modal-submit-phone"
               >
                 {isLoading ? (
-                  <span>Processing...</span>
-                ) : isSignUp ? (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    <span>Create Account & Sign In</span>
-                  </>
+                  <span>Sending code...</span>
                 ) : (
                   <>
-                    <LogIn className="w-4 h-4" />
-                    <span>Sign In to Live Database</span>
+                    <span>Send Verification Code</span>
+                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  6-Digit OTP Code
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    disabled={isLoading}
+                    placeholder="Enter 6-digit OTP"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition text-center tracking-[0.5em] font-mono font-bold"
+                    id="auth-modal-otp-input"
+                  />
+                </div>
+              </div>
 
-              <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
+              <div className="flex gap-2">
                 <button
                   type="button"
+                  disabled={isLoading}
                   onClick={() => {
-                    setIsSignUp(!isSignUp);
+                    setStep('phone');
+                    setOtp('');
                     setErrorMsg(null);
                     setSuccessMsg(null);
                   }}
-                  className="text-emerald-700 hover:underline font-medium"
+                  className="w-1/3 py-2.5 px-3 rounded-xl border border-slate-200 font-semibold text-slate-500 hover:text-slate-800 transition text-xs cursor-pointer text-center"
                 >
-                  {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
+                  Back
                 </button>
-
                 <button
-                  type="button"
-                  onClick={onClose}
-                  className="text-slate-500 hover:text-slate-800"
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-2/3 py-2.5 px-4 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-600/50 transition shadow-xs flex items-center justify-center gap-2 cursor-pointer text-sm"
+                  id="auth-modal-submit-otp"
                 >
-                  Close
+                  {isLoading ? 'Verifying...' : 'Verify & Continue'}
                 </button>
               </div>
-            </form>
+            </div>
           )}
-        </div>
+
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>WhatsBill OTP is direct, secure, and WhatsApp-authenticated</span>
+          </div>
+        </form>
       </div>
     </div>
   );

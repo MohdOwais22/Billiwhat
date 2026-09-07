@@ -39,16 +39,6 @@ export function MarketingFooter({ onOpenApp, onOpenContact }: MarketingFooterPro
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
               The AI business assistant built for Indian distributors, wholesalers, and credit-based traders. Turn WhatsApp messages into tax invoices, track outstanding receivables, and collect faster.
             </p>
-
-            <div className="pt-2">
-              <button
-                onClick={onOpenApp}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 hover:text-white hover:border-slate-500 transition"
-              >
-                <span>Launch Web Dashboard</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-              </button>
-            </div>
           </div>
 
           {/* Col 3: Navigation */}
@@ -170,12 +160,6 @@ export function MarketingFooter({ onOpenApp, onOpenContact }: MarketingFooterPro
         <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
           <div>
             © 2026 {APP_NAME}. All rights reserved. Built for Indian Distributors & Wholesalers.
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Production Platform Operational</span>
-            </span>
           </div>
         </div>
       </div>

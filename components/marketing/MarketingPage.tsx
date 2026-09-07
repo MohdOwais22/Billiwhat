@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { MarketingNavbar } from './MarketingNavbar';
@@ -20,6 +20,7 @@ import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { MarketingFooter } from './MarketingFooter';
 import { StartTrialModal } from './StartTrialModal';
+import { AuthModal } from '@/components/modals/AuthModal';
 
 interface MarketingPageProps {
   onOpenDashboard: () => void;
@@ -29,21 +30,40 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
   const router = useRouter();
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('Business');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
 
-  const handleStartFree = async () => {
-    try {
-      const client = getSupabaseClient();
-      if (client) {
-        const { data: { session } } = await client.auth.getSession();
-        if (session?.user) {
-          onOpenDashboard();
-          return;
-        }
-      }
-    } catch (e) {
-      console.error('Supabase session lookup error:', e);
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) {
+      setIsSessionLoading(false);
+      return;
     }
-    router.push('/login');
+
+    // Load initial session
+    client.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      setIsSessionLoading(false);
+    });
+
+    // Listen to real-time auth changes
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setIsSessionLoading(false);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  const handleStartFree = () => {
+    if (session?.user) {
+      onOpenDashboard();
+    } else {
+      setIsAuthModalOpen(true);
+    }
   };
 
   const handleOpenTrialModal = (plan = 'Business') => {
@@ -63,7 +83,9 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
       {/* Sticky Marketing Header Navigation */}
       <MarketingNavbar
         onOpenApp={onOpenDashboard}
-        onOpenDemoModal={handleStartFree}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        session={session}
+        isSessionLoading={isSessionLoading}
       />
 
       {/* Main Marketing Page Content */}
@@ -131,6 +153,16 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
         onClose={() => setIsTrialModalOpen(false)}
         selectedPlan={selectedPlan}
         onLaunchDashboard={onOpenDashboard}
+      />
+
+      {/* Unified Closeable Canonical WhatsApp OTP Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => {
+          // Callback after successful real verification
+          router.refresh();
+        }}
       />
     </div>
   );

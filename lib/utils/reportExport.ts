@@ -5,6 +5,8 @@ import {
   ReceivablesAgeingReportData,
   SalesReportBreakdownItem,
 } from '@/lib/services/reportsService';
+import { ReceivablesInvoiceItem } from '@/lib/services/collectionsService';
+import { EnrichedPayment } from '@/lib/services/paymentsService';
 
 /**
  * Downloads a generated CSV file directly in browser
@@ -277,3 +279,93 @@ export function exportReceivablesAgeingToCSV(
   const cleanFilename = `Receivables_Ageing_Report_${new Date().toISOString().split('T')[0]}.csv`;
   downloadCSV(cleanFilename, csvContent);
 }
+
+/**
+ * Exports Collections & Receivables Queue Register to CSV
+ */
+export function exportCollectionsRegisterToCSV(
+  queue: ReceivablesInvoiceItem[],
+  totalOutstanding: number
+) {
+  const lines: string[] = [];
+
+  lines.push(`WhatsBill - Receivables & Collections Register`);
+  lines.push(`Generated Date,${new Date().toLocaleDateString('en-IN')}`);
+  lines.push(`Total Open Invoices,${queue.length}`);
+  lines.push(`Total Outstanding Balance (INR),${totalOutstanding.toFixed(2)}`);
+  lines.push('');
+
+  lines.push(
+    'Invoice #,Issue Date,Due Date,Days Overdue,Ageing Bucket,Priority,Customer Name,Business Name,Phone,GSTIN,Invoice Total (INR),Amount Paid (INR),Balance Due (INR),Suggested Action'
+  );
+
+  queue.forEach((item) => {
+    lines.push(
+      [
+        escapeCSV(item.invoiceNumber),
+        escapeCSV(item.issueDate),
+        escapeCSV(item.dueDate),
+        item.daysOverdue,
+        escapeCSV(item.bucket.toUpperCase()),
+        escapeCSV(item.priority.toUpperCase()),
+        escapeCSV(item.customerName),
+        escapeCSV(item.customerBusinessName || ''),
+        escapeCSV(item.phone),
+        escapeCSV(item.gstin || 'Unregistered'),
+        item.total.toFixed(2),
+        item.amountPaid.toFixed(2),
+        item.balanceDue.toFixed(2),
+        escapeCSV(item.suggestedAction),
+      ].join(',')
+    );
+  });
+
+  const csvContent = lines.join('\n');
+  const cleanFilename = `Collections_Register_${new Date().toISOString().split('T')[0]}.csv`;
+  downloadCSV(cleanFilename, csvContent);
+}
+
+/**
+ * Exports Payment Settlements Register to CSV
+ */
+export function exportPaymentRegisterToCSV(
+  payments: EnrichedPayment[],
+  totalCollected: number
+) {
+  const lines: string[] = [];
+
+  lines.push(`WhatsBill - Payment Settlements Register`);
+  lines.push(`Generated Date,${new Date().toLocaleDateString('en-IN')}`);
+  lines.push(`Total Transactions,${payments.length}`);
+  lines.push(`Total Collected Amount (INR),${totalCollected.toFixed(2)}`);
+  lines.push('');
+
+  lines.push(
+    'Payment ID,Payment Date,Customer Name,Business Name,Phone,GSTIN,Invoice #,Amount (INR),Payment Method,Reference / UTR,Gateway,Status'
+  );
+
+  payments.forEach((p) => {
+    const cust = p.customer;
+    lines.push(
+      [
+        escapeCSV(p.id),
+        escapeCSV((p.paid_at || p.created_at).split('T')[0]),
+        escapeCSV(cust?.name || 'Customer'),
+        escapeCSV(cust?.business_name || ''),
+        escapeCSV(cust?.phone || ''),
+        escapeCSV(cust?.gstin || 'Unregistered'),
+        escapeCSV(p.invoice?.invoice_number || 'Unallocated'),
+        (Number(p.amount) || 0).toFixed(2),
+        escapeCSV((p.method || 'cash').toUpperCase()),
+        escapeCSV(p.reference || p.gateway_payment_id || ''),
+        escapeCSV(p.gateway || 'Manual'),
+        escapeCSV((p.status || 'completed').toUpperCase()),
+      ].join(',')
+    );
+  });
+
+  const csvContent = lines.join('\n');
+  const cleanFilename = `Payment_Settlements_${new Date().toISOString().split('T')[0]}.csv`;
+  downloadCSV(cleanFilename, csvContent);
+}
+

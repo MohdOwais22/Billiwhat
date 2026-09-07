@@ -18,6 +18,8 @@ import { InvoicesPage } from '@/components/invoices/InvoicesPage';
 import { CustomersPage } from '@/components/customers/CustomersPage';
 import { ProductsPage } from '@/components/products/ProductsPage';
 import { ReportsPage } from '@/components/reports/ReportsPage';
+import { CollectionsPage } from '@/components/collections/CollectionsPage';
+import { PaymentsPage } from '@/components/payments/PaymentsPage';
 import { useDashboard } from '@/context/DashboardContext';
 import { calculateDateRange } from '@/lib/services/dashboardService';
 
@@ -69,6 +71,14 @@ export default function DashboardPage() {
 
   if (currentRoute === 'reports') {
     return <ReportsPage />;
+  }
+
+  if (currentRoute === 'receivables') {
+    return <CollectionsPage />;
+  }
+
+  if (currentRoute === 'payments') {
+    return <PaymentsPage />;
   }
 
   if (currentRoute !== 'dashboard') {

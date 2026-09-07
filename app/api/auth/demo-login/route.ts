@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (process.env.ALLOW_DEMO_LOGIN === 'false') {
+      return NextResponse.json(
+        { error: 'Demo authentication is disabled in this environment.' },
+        { status: 403 }
+      );
+    }
+
     const demoEmail = process.env.DEMO_LOGIN_EMAIL || 'demo@whatsbill.internal';
     const demoPassword = process.env.DEMO_LOGIN_PASSWORD || 'WhatsBillDemo2026!';
 

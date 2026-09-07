@@ -552,8 +552,20 @@ function OnboardingContent() {
           </div>
         </form>
 
-        <div className="text-center text-[11px] text-slate-500">
-          You can add GST, address and other details later from Settings.
+        <div className="text-center text-[11px] text-slate-500 space-y-1">
+          <div>
+            You can add GST, address and other details later from Settings.
+          </div>
+          <div>
+            By creating a workspace, you agree to our{' '}
+            <a href="/terms" target="_blank" className="underline hover:text-slate-400 transition-colors">
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" target="_blank" className="underline hover:text-slate-400 transition-colors">
+              Privacy Policy
+            </a>.
+          </div>
         </div>
       </div>
     </div>

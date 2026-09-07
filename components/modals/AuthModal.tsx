@@ -383,9 +383,21 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 pt-2 border-t border-slate-100">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>WhatsBill OTP is direct, secure, and WhatsApp-authenticated</span>
+          <div className="flex flex-col items-center justify-center gap-1.5 text-[10px] text-slate-400 pt-2.5 border-t border-slate-100 text-center">
+            <div className="flex items-center gap-1.5 justify-center">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>WhatsBill OTP is direct, secure, and WhatsApp-authenticated</span>
+            </div>
+            <p className="leading-normal max-w-[280px] mx-auto">
+              By proceeding, you agree to our{' '}
+              <a href="/terms" target="_blank" className="underline font-semibold hover:text-slate-600 transition">
+                Terms of Service
+              </a>{' '}
+              and acknowledge our{' '}
+              <a href="/privacy" target="_blank" className="underline font-semibold hover:text-slate-600 transition">
+                Privacy Policy
+              </a>.
+            </p>
           </div>
         </form>
       </div>

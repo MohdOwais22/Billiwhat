@@ -138,13 +138,18 @@ export function MarketingFooter({ onOpenApp, onOpenContact }: MarketingFooterPro
             </h4>
             <ul className="space-y-2">
               <li>
-                <a href="#security" className="hover:text-white transition">
-                  Data Privacy Policy
+                <a href="/privacy" className="hover:text-white transition">
+                  Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="#security" className="hover:text-white transition">
+                <a href="/terms" className="hover:text-white transition">
                   Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="/cookies" className="hover:text-white transition">
+                  Cookie Policy
                 </a>
               </li>
               <li>

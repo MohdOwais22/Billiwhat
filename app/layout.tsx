@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { APP_NAME } from '@/config/brand';
+import { CookieConsent } from '@/components/common/CookieConsent';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -49,6 +50,7 @@ export default function RootLayout({
     <html lang="en_IN">
       <body className="min-h-screen bg-slate-50 antialiased font-sans text-slate-900">
         {children}
+        <CookieConsent />
       </body>
     </html>
   );

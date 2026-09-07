@@ -632,11 +632,13 @@ export async function addNewProduct(params: {
   unitPrice?: number;
   sellingPrice?: number;
   purchasePrice?: number;
+  costPrice?: number;
   gstRate?: number;
   taxRate?: number;
   stockQuantity?: number;
   lowStockThreshold?: number;
   reorderLevel?: number;
+  isActive?: boolean;
 }) {
   const client = createBrowserClient();
   const { data: authData } = await client.auth.getUser();
@@ -656,6 +658,7 @@ export async function addNewProduct(params: {
   }
 
   const sellingPrice = params.sellingPrice ?? params.unitPrice ?? 0;
+  const purchasePrice = params.purchasePrice ?? params.costPrice ?? 0;
   const taxRate = params.taxRate ?? params.gstRate ?? 18;
   const lowStockThreshold = params.lowStockThreshold ?? params.reorderLevel ?? 10;
 
@@ -667,15 +670,283 @@ export async function addNewProduct(params: {
     hsn_sac: (params.hsnSac || params.hsnCode)?.trim() || null,
     unit: params.unit?.trim() || 'PCS',
     selling_price: sellingPrice,
-    purchase_price: params.purchasePrice ?? 0,
+    purchase_price: purchasePrice,
     tax_rate: taxRate,
     stock_quantity: params.stockQuantity ?? 0,
     low_stock_threshold: lowStockThreshold,
-    is_active: true,
+    is_active: params.isActive ?? true,
   }).select().single();
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Updates an existing product catalog item in Supabase
+ */
+export async function updateProduct(
+  productId: string,
+  params: {
+    name?: string;
+    sku?: string | null;
+    barcode?: string | null;
+    hsnSac?: string | null;
+    unit?: string;
+    sellingPrice?: number;
+    purchasePrice?: number;
+    taxRate?: number;
+    stockQuantity?: number;
+    lowStockThreshold?: number;
+    isActive?: boolean;
+  }
+) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+
+  if (!authData?.user) {
+    throw new Error('Please sign in to update product.');
+  }
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) {
+    throw new Error('No organization found for current user session.');
+  }
+
+  const payload: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (params.name !== undefined) payload.name = params.name.trim();
+  if (params.sku !== undefined) payload.sku = params.sku ? params.sku.trim() : null;
+  if (params.barcode !== undefined) payload.barcode = params.barcode ? params.barcode.trim() : null;
+  if (params.hsnSac !== undefined) payload.hsn_sac = params.hsnSac ? params.hsnSac.trim() : null;
+  if (params.unit !== undefined) payload.unit = params.unit.trim();
+  if (params.sellingPrice !== undefined) payload.selling_price = Number(params.sellingPrice);
+  if (params.purchasePrice !== undefined) payload.purchase_price = Number(params.purchasePrice);
+  if (params.taxRate !== undefined) payload.tax_rate = Number(params.taxRate);
+  if (params.stockQuantity !== undefined) payload.stock_quantity = Number(params.stockQuantity);
+  if (params.lowStockThreshold !== undefined) payload.low_stock_threshold = Number(params.lowStockThreshold);
+  if (params.isActive !== undefined) payload.is_active = params.isActive;
+
+  const { data, error } = await client
+    .from('products')
+    .update(payload)
+    .eq('id', productId)
+    .eq('organization_id', memberData.organization_id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Adjusts stock quantity for a product (direct set or delta change)
+ */
+export async function adjustProductStock(
+  productId: string,
+  params: {
+    newStockQuantity?: number;
+    adjustmentDelta?: number;
+    reason?: string;
+  }
+) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+
+  if (!authData?.user) {
+    throw new Error('Please sign in to adjust product stock.');
+  }
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) {
+    throw new Error('No organization found for current user session.');
+  }
+
+  // Fetch current product stock
+  const { data: currentProd, error: fetchErr } = await client
+    .from('products')
+    .select('id, stock_quantity')
+    .eq('id', productId)
+    .eq('organization_id', memberData.organization_id)
+    .single();
+
+  if (fetchErr || !currentProd) {
+    throw new Error('Product not found or access denied.');
+  }
+
+  let finalStock = currentProd.stock_quantity || 0;
+
+  if (params.newStockQuantity !== undefined) {
+    finalStock = Math.max(0, Number(params.newStockQuantity));
+  } else if (params.adjustmentDelta !== undefined) {
+    finalStock = Math.max(0, (currentProd.stock_quantity || 0) + Number(params.adjustmentDelta));
+  }
+
+  const { data, error } = await client
+    .from('products')
+    .update({
+      stock_quantity: finalStock,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', productId)
+    .eq('organization_id', memberData.organization_id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Safely deletes or archives a product catalog item based on invoice usage
+ */
+export async function deleteProduct(productId: string) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+
+  if (!authData?.user) {
+    throw new Error('Please sign in to delete a product.');
+  }
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) {
+    throw new Error('No organization found for current user session.');
+  }
+
+  // Check if product is referenced in invoice_items
+  const { count, error: countError } = await client
+    .from('invoice_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('product_id', productId);
+
+  if (count && count > 0) {
+    // If has line items, deactivate to preserve GST audit trail
+    const { error: updateError } = await client
+      .from('products')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', productId)
+      .eq('organization_id', memberData.organization_id);
+
+    if (updateError) throw updateError;
+    return {
+      archived: true,
+      message: 'Product is referenced in existing invoices and has been marked Inactive to preserve GST financial audit trail.',
+    };
+  }
+
+  const { error } = await client
+    .from('products')
+    .delete()
+    .eq('id', productId)
+    .eq('organization_id', memberData.organization_id);
+
+  if (error) throw error;
+  return { deleted: true, message: 'Product successfully deleted from catalog.' };
+}
+
+/**
+ * Fetches real sales usage and invoice line items for a specific product
+ */
+export async function fetchProductSalesUsage(productId: string) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+
+  if (!authData?.user) return { totalUnitsSold: 0, totalRevenue: 0, invoiceCount: 0, sales: [] };
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) return { totalUnitsSold: 0, totalRevenue: 0, invoiceCount: 0, sales: [] };
+
+  const { data: items, error } = await client
+    .from('invoice_items')
+    .select(`
+      id,
+      invoice_id,
+      description,
+      quantity,
+      unit,
+      unit_price,
+      discount,
+      tax_rate,
+      line_total,
+      invoices:invoice_id (
+        id,
+        invoice_number,
+        issue_date,
+        due_date,
+        status,
+        customer_id,
+        customers:customer_id (
+          id,
+          name,
+          business_name
+        )
+      )
+    `)
+    .eq('product_id', productId);
+
+  if (error || !items) {
+    return { totalUnitsSold: 0, totalRevenue: 0, invoiceCount: 0, sales: [] };
+  }
+
+  let totalUnitsSold = 0;
+  let totalRevenue = 0;
+  const uniqueInvoices = new Set<string>();
+
+  const sales = items.map((item: any) => {
+    const inv = item.invoices || {};
+    const cust = inv.customers || {};
+    const qty = Number(item.quantity) || 0;
+    const lineTot = Number(item.line_total) || 0;
+
+    totalUnitsSold += qty;
+    totalRevenue += lineTot;
+    if (inv.id) uniqueInvoices.add(inv.id);
+
+    return {
+      itemId: item.id,
+      invoiceId: inv.id || item.invoice_id,
+      invoiceNumber: inv.invoice_number || 'INV',
+      issueDate: inv.issue_date || '',
+      dueDate: inv.due_date || '',
+      status: inv.status || 'issued',
+      customerId: cust.id || inv.customer_id,
+      customerName: cust.name || 'Customer',
+      customerBusiness: cust.business_name || null,
+      quantity: qty,
+      unit: item.unit || 'PCS',
+      unitPrice: Number(item.unit_price) || 0,
+      taxRate: Number(item.tax_rate) || 0,
+      lineTotal: lineTot,
+    };
+  });
+
+  return {
+    totalUnitsSold,
+    totalRevenue,
+    invoiceCount: uniqueInvoices.size,
+    sales,
+  };
 }
 
 /**

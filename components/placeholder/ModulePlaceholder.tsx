@@ -27,68 +27,57 @@ const MODULE_CONFIG: Record<
     title: string;
     description: string;
     icon: React.ComponentType<{ className?: string }>;
-    features: string[];
   }
 > = {
   sales: {
     title: 'Sales & Invoicing',
-    description: 'B2B GST invoices, E-way bill generation, delivery challans, and credit memos.',
+    description: 'B2B GST invoices, delivery challans, and credit memos.',
     icon: ReceiptText,
-    features: ['E-Way Bill 2.0 Integration', 'Multiple GST Rate Invoices', 'Custom Print Templates (A4 & Thermal)'],
   },
   purchases: {
     title: 'Purchases & Vendor Bills',
-    description: 'Record vendor purchase bills, track input tax credit (ITC), and manage supplier ledgers.',
+    description: 'Purchase data not available yet in current organization catalog.',
     icon: ShoppingBag,
-    features: ['GSTR-2B Auto-matching', 'Vendor Ledger Reconciliation', 'Purchase Order Workflow'],
   },
   customers: {
-    title: 'Customers & Credit Parties',
-    description: 'Wholesale buyers directory, credit limits, payment terms, and WhatsApp message logs.',
+    title: 'Customers',
+    description: 'Customer directory, billing addresses, GSTIN records, and contact details.',
     icon: Users,
-    features: ['Credit Limit Hard Stops', 'Multi-contact Ledger Sharing', 'Customer Aging Analysis'],
   },
   inventory: {
-    title: 'Inventory & Stock Management',
-    description: 'Real-time SKU quantities, batch tracking, low-stock reorder thresholds, and HSN catalog.',
+    title: 'Products & Stock',
+    description: 'Product catalog, HSN/SAC classification, pricing, and on-hand stock quantities.',
     icon: Package,
-    features: ['Barcode / QR Scanner Support', 'Batch & Expiry Date Alerts', 'Warehouse Multi-location Transfers'],
   },
   receivables: {
-    title: 'Receivables & Ageing Analysis',
-    description: 'Follow-up tracking, overdue brackets (0-30, 31-60, 60+ days), and collection pipelines.',
+    title: 'Receivables',
+    description: 'Track outstanding balances, payment terms, and collection timelines.',
     icon: ClockAlert,
-    features: ['Aging Debt Buckets', 'Automated Dispute Tracking', 'Staff Collection Assignment'],
   },
   payments: {
-    title: 'Payment Settlements & Ledger',
-    description: 'Bank reconciliation, UPI Dynamic QR payments, cheque deposits, and cash register.',
+    title: 'Payment Settlements',
+    description: 'Payment records, reconciliation, and payment receipts.',
     icon: CreditCard,
-    features: ['Instant UPI Intent Links', 'Bank Statement OCR Parser', 'Cheque Clearing Logs'],
   },
   expenses: {
-    title: 'Operating Expenses & Overhead',
-    description: 'Track rent, freight & transport charges, salaries, and operational costs.',
+    title: 'Operating Expenses',
+    description: 'Expense records and operational cost tracking.',
     icon: TrendingDown,
-    features: ['Category-wise Expense Ledgers', 'GST Input Credit Tracking', 'Cash Drawer Balancing'],
   },
   reports: {
-    title: 'Financial Reports & GST Filing',
-    description: 'GSTR-1, GSTR-3B JSON exports, Profit & Loss statements, and Party Statement of Accounts.',
+    title: 'Reports & GST',
+    description: 'Financial reports, GST summaries, and customer account statements.',
     icon: BarChart3,
-    features: ['GSTR-1 Ready JSON & Excel', 'Party Account Statements with UPI QR', 'Salesman Performance Matrix'],
   },
   whatsapp_ai: {
-    title: 'WhatsApp AI Workflows',
-    description: 'Conversational ledger balance, auto-payment reminders, and WhatsApp billing.',
+    title: 'WhatsApp Workflows',
+    description: 'WhatsApp communication and payment notifications.',
     icon: BotMessageSquare,
-    features: ['Customer Balance Inquiries', 'Daily Collection Queue', 'Payment Receipt Confirmations'],
   },
   settings: {
     title: 'Settings & Business Profile',
     description: 'Manage business identity, GST profile, team roles, and system preferences.',
     icon: Settings,
-    features: ['Business Details & Addresses', 'GSTIN & Tax Profiles', 'Team Role Permissions'],
   },
 };
 
@@ -102,7 +91,7 @@ export function ModulePlaceholder({ route, onBackToDashboard }: ModulePlaceholde
     <div className="p-6 sm:p-8 max-w-4xl mx-auto" id={`module-placeholder-${route}`}>
       <button
         onClick={onBackToDashboard}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition mb-6"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition mb-6 cursor-pointer"
         id="back-to-dashboard-btn"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
@@ -110,35 +99,17 @@ export function ModulePlaceholder({ route, onBackToDashboard }: ModulePlaceholde
       </button>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-xs">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
             <Icon className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">{config.title}</h2>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">{config.description}</p>
-          </div>
-        </div>
-
-        <div className="mt-6 pt-6 border-t border-slate-100">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-            Available Operations:
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {config.features.map((feat, idx) => (
-              <div
-                key={idx}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700 flex items-center gap-2"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                <span>{feat}</span>
-              </div>
-            ))}
+            <h2 className="text-xl font-bold text-slate-900">{config.title}</h2>
+            <p className="text-xs text-slate-500 mt-1">{config.description}</p>
           </div>
         </div>
       </div>
     </div>
   );
 }
+

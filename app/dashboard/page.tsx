@@ -16,6 +16,8 @@ import { ModulePlaceholder } from '@/components/placeholder/ModulePlaceholder';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { InvoicesPage } from '@/components/invoices/InvoicesPage';
 import { CustomersPage } from '@/components/customers/CustomersPage';
+import { ProductsPage } from '@/components/products/ProductsPage';
+import { ReportsPage } from '@/components/reports/ReportsPage';
 import { useDashboard } from '@/context/DashboardContext';
 import { calculateDateRange } from '@/lib/services/dashboardService';
 
@@ -59,6 +61,14 @@ export default function DashboardPage() {
 
   if (currentRoute === 'customers') {
     return <CustomersPage />;
+  }
+
+  if (currentRoute === 'inventory') {
+    return <ProductsPage />;
+  }
+
+  if (currentRoute === 'reports') {
+    return <ReportsPage />;
   }
 
   if (currentRoute !== 'dashboard') {

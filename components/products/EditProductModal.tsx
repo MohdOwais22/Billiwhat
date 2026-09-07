@@ -1,35 +1,56 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, PackagePlus, AlertCircle, Check } from 'lucide-react';
-import { addNewProduct } from '@/lib/services/dashboardService';
+import React, { useState, useEffect } from 'react';
+import { X, Edit3, AlertCircle, Check } from 'lucide-react';
+import { Product } from '@/types/database';
+import { updateProduct } from '@/lib/services/dashboardService';
 
-interface AddProductModalProps {
+interface EditProductModalProps {
+  product: Product | null;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalProps) {
+export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditProductModalProps) {
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [barcode, setBarcode] = useState('');
   const [hsn, setHSN] = useState('');
   const [unit, setUnit] = useState('PCS');
-  const [unitPrice, setUnitPrice] = useState('');
+  const [sellingPrice, setSellingPrice] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
-  const [stockQuantity, setStockQuantity] = useState('');
-  const [minStockAlert, setMinStockAlert] = useState('10');
   const [taxRate, setTaxRate] = useState(18);
+  const [stockQuantity, setStockQuantity] = useState('');
+  const [lowStockThreshold, setLowStockThreshold] = useState('');
+  const [isActive, setIsActive] = useState(true);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (product && isOpen) {
+      setName(product.name || '');
+      setSku(product.sku || '');
+      setBarcode(product.barcode || '');
+      setHSN(product.hsn_sac || '');
+      setUnit(product.unit || 'PCS');
+      setSellingPrice(product.selling_price !== undefined ? String(product.selling_price) : '');
+      setPurchasePrice(product.purchase_price !== undefined ? String(product.purchase_price) : '');
+      setTaxRate(product.tax_rate ?? 18);
+      setStockQuantity(product.stock_quantity !== undefined ? String(product.stock_quantity) : '0');
+      setLowStockThreshold(product.low_stock_threshold !== undefined ? String(product.low_stock_threshold) : '10');
+      setIsActive(product.is_active ?? true);
+      setErrorMsg(null);
+    }
+  }, [product, isOpen]);
+
+  if (!isOpen || !product) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const priceNum = parseFloat(unitPrice);
-    if (!name.trim() || isNaN(priceNum) || priceNum <= 0) {
+    const sellPriceNum = parseFloat(sellingPrice);
+    if (!name.trim() || isNaN(sellPriceNum) || sellPriceNum <= 0) {
       setErrorMsg('Product name and a valid selling price greater than zero are required.');
       return;
     }
@@ -39,41 +60,27 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
       setErrorMsg(null);
 
       const parsedStock = stockQuantity !== '' ? parseFloat(stockQuantity) : 0;
-      const parsedMinAlert = minStockAlert !== '' ? parseFloat(minStockAlert) : 10;
-      const parsedPurchase = purchasePrice !== '' ? parseFloat(purchasePrice) : 0;
+      const parsedLowStock = lowStockThreshold !== '' ? parseFloat(lowStockThreshold) : 10;
+      const parsedPurchasePrice = purchasePrice !== '' ? parseFloat(purchasePrice) : 0;
 
-      await addNewProduct({
+      await updateProduct(product.id, {
         name: name.trim(),
-        sku: sku.trim() || undefined,
-        barcode: barcode.trim() || undefined,
-        hsnSac: hsn.trim() || undefined,
-        hsnCode: hsn.trim() || undefined,
+        sku: sku.trim() || null,
+        barcode: barcode.trim() || null,
+        hsnSac: hsn.trim() || null,
         unit: unit.trim() || 'PCS',
-        stockQuantity: parsedStock,
-        lowStockThreshold: parsedMinAlert,
-        reorderLevel: parsedMinAlert,
-        unitPrice: priceNum,
-        sellingPrice: priceNum,
-        purchasePrice: parsedPurchase,
-        costPrice: parsedPurchase,
-        gstRate: Number(taxRate),
+        sellingPrice: sellPriceNum,
+        purchasePrice: parsedPurchasePrice,
         taxRate: Number(taxRate),
+        stockQuantity: Math.max(0, parsedStock),
+        lowStockThreshold: Math.max(0, parsedLowStock),
+        isActive,
       });
-
-      // Reset form
-      setName('');
-      setSku('');
-      setBarcode('');
-      setHSN('');
-      setUnitPrice('');
-      setPurchasePrice('');
-      setStockQuantity('');
-      setMinStockAlert('10');
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to add product.');
+      setErrorMsg(err?.message || 'Failed to update product catalog record.');
     } finally {
       setIsSubmitting(false);
     }
@@ -82,21 +89,21 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
-      id="add-product-modal-backdrop"
+      id="edit-product-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
-        {/* Header */}
+        {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold">
-              <PackagePlus className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center font-bold">
+              <Edit3 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Add Inventory Product</h3>
-              <p className="text-xs text-slate-500">Item catalog, HSN, tax rate & opening stock</p>
+              <h3 className="text-base font-bold text-slate-900">Edit Product</h3>
+              <p className="text-xs text-slate-500">Update specifications, pricing & GST details</p>
             </div>
           </div>
           <button
@@ -108,7 +115,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           </button>
         </div>
 
-        {/* Scrollable Form */}
+        {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center gap-2">
@@ -119,7 +126,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Item / Product Name *
+              Product / Item Name *
             </label>
             <input
               type="text"
@@ -128,7 +135,6 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               required
               placeholder="e.g. Industrial Copper Cable 2.5 sq mm"
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              id="prod-name-input"
             />
           </div>
 
@@ -207,12 +213,11 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
                 type="number"
                 min="0.01"
                 step="0.01"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
+                value={sellingPrice}
+                onChange={(e) => setSellingPrice(e.target.value)}
                 required
                 placeholder="0.00"
                 className="w-full px-3 py-2 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                id="prod-price-input"
               />
             </div>
 
@@ -242,7 +247,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
                 onChange={(e) => setTaxRate(Number(e.target.value))}
                 className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
               >
-                <option value={18}>18% GST (Standard)</option>
+                <option value={18}>18% GST</option>
                 <option value={12}>12% GST</option>
                 <option value={28}>28% GST</option>
                 <option value={5}>5% GST</option>
@@ -252,7 +257,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
 
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Opening Stock
+                Current Stock
               </label>
               <input
                 type="number"
@@ -273,14 +278,33 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
                 type="number"
                 min="0"
                 step="any"
-                value={minStockAlert}
-                onChange={(e) => setMinStockAlert(e.target.value)}
+                value={lowStockThreshold}
+                onChange={(e) => setLowStockThreshold(e.target.value)}
                 placeholder="10"
                 className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
           </div>
 
+          {/* Active / Inactive Status */}
+          <div className="pt-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-slate-800">
+                Active in Catalog & Billing
+              </span>
+            </label>
+            <p className="text-[11px] text-slate-500 ml-6">
+              Inactive products are hidden from new invoice line-item dropdowns.
+            </p>
+          </div>
+
+          {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"
@@ -294,14 +318,13 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               type="submit"
               disabled={isSubmitting}
               className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1.5"
-              id="submit-product-btn"
             >
               {isSubmitting ? (
                 'Saving...'
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Add to Catalog</span>
+                  <span>Save Changes</span>
                 </>
               )}
             </button>

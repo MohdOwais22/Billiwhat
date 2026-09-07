@@ -16,8 +16,8 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [gstin, setGstin] = useState('');
-  const [creditLimit, setCreditLimit] = useState(200000);
-  const [paymentTermsDays, setPaymentTermsDays] = useState(30);
+  const [creditLimit, setCreditLimit] = useState('');
+  const [paymentTermsDays, setPaymentTermsDays] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone) {
+    if (!name.trim() || !phone.trim()) {
       setErrorMsg('Contact person name and phone number are required.');
       return;
     }
@@ -34,16 +34,19 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
       setIsSubmitting(true);
       setErrorMsg(null);
 
+      const parsedCreditLimit = creditLimit !== '' ? Number(creditLimit) : 0;
+      const parsedDays = paymentTermsDays !== '' ? Number(paymentTermsDays) : 0;
+
       await addNewCustomer({
-        name,
-        businessName: companyName,
-        companyName,
-        phone,
-        email,
-        gstin,
-        creditLimit: Number(creditLimit),
-        creditDays: Number(paymentTermsDays),
-        paymentTermsDays: Number(paymentTermsDays),
+        name: name.trim(),
+        businessName: companyName.trim() || undefined,
+        companyName: companyName.trim() || undefined,
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        gstin: gstin.trim().toUpperCase() || undefined,
+        creditLimit: parsedCreditLimit,
+        creditDays: parsedDays,
+        paymentTermsDays: parsedDays,
       });
 
       onSuccess();
@@ -123,7 +126,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
-                placeholder="+91 98765 43210"
+                placeholder="e.g. +91 98000 00000"
                 className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 id="cust-phone-input"
               />
@@ -162,28 +165,30 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Credit Limit (₹)
+                Credit Limit (₹) <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 type="number"
                 min="0"
-                step="5000"
+                step="1000"
                 value={creditLimit}
-                onChange={(e) => setCreditLimit(Number(e.target.value))}
+                onChange={(e) => setCreditLimit(e.target.value)}
+                placeholder="e.g. 100000"
                 className="w-full px-3 py-2 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Credit Period (Days)
+                Credit Period (Days) <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 type="number"
                 min="0"
                 max="180"
                 value={paymentTermsDays}
-                onChange={(e) => setPaymentTermsDays(Number(e.target.value))}
+                onChange={(e) => setPaymentTermsDays(e.target.value)}
+                placeholder="e.g. 30"
                 className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>

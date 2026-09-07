@@ -450,6 +450,7 @@ export default function DashboardPage() {
                   setWhatsAppItem(null);
                 }}
                 onSent={loadData}
+                organization={dashboardData?.organization}
               />
             )}
           </div>

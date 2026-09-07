@@ -124,7 +124,11 @@ export function InvoiceDetailModal({
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Payment Terms:</span>
-                <span className="font-medium text-slate-700">{customer?.credit_days || 30} Days Credit</span>
+                <span className="font-medium text-slate-700">
+                  {customer?.credit_days && customer.credit_days > 0
+                    ? `${customer.credit_days} Days Credit`
+                    : 'Net / Immediate'}
+                </span>
               </div>
             </div>
           </div>

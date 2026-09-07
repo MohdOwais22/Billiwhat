@@ -483,8 +483,8 @@ export async function addNewCustomer(params: {
     gstin: params.gstin?.trim().toUpperCase() || null,
     billing_address: params.billingAddress?.trim() || 'N/A',
     shipping_address: params.shippingAddress?.trim() || null,
-    credit_limit: params.creditLimit ?? 200000,
-    credit_days: params.creditDays ?? params.paymentTermsDays ?? 30,
+    credit_limit: params.creditLimit ?? 0,
+    credit_days: params.creditDays ?? params.paymentTermsDays ?? 0,
     notes: params.notes?.trim() || null,
     is_active: true,
   }).select().single();

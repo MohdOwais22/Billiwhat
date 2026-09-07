@@ -272,7 +272,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
                     maxLength={10}
                     disabled={isLoading || isDemoLoading}
                     autoFocus
-                    placeholder="98765 43210"
+                    placeholder="98000 00000"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                     className="w-full px-3 py-2.5 text-sm rounded-r-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition font-medium"

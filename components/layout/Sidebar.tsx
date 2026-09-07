@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
   ReceiptText,
@@ -137,7 +138,7 @@ export function Sidebar({
               </p>
               <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                GST Verified • Main Branch
+                {organization?.gstin ? `GST: ${organization.gstin}` : 'Business Account'}
               </p>
             </div>
           </div>
@@ -165,15 +166,21 @@ export function Sidebar({
                 if (onCloseMobile) onCloseMobile();
               }}
               id={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all group text-left cursor-pointer ${
-                isActive
-                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-950 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+              className={`relative w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition-colors duration-150 group text-left cursor-pointer active:scale-[0.98] ${
+                isActive ? 'text-white font-semibold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60 font-medium'
               }`}
             >
-              <div className="flex items-center gap-3">
+              {isActive && (
+                <motion.div
+                  layoutId="activeSidebarNav"
+                  className="absolute inset-0 bg-emerald-600 rounded-lg shadow-sm shadow-emerald-950/50"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+
+              <div className="relative z-10 flex items-center gap-3">
                 <Icon
-                  className={`w-4 h-4 shrink-0 transition-colors ${
+                  className={`w-4 h-4 shrink-0 transition-colors duration-150 ${
                     isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
                   }`}
                 />
@@ -182,7 +189,7 @@ export function Sidebar({
 
               {item.badge && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-150 ${
                     isActive
                       ? 'bg-white/20 text-white'
                       : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
@@ -201,12 +208,13 @@ export function Sidebar({
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Secure Supabase Ledger</span>
+            <span>Audit-Ready Ledger</span>
           </div>
-          <span className="text-[10px] text-slate-400">v3.0</span>
+          <span className="text-[10px] text-slate-500">v3.0</span>
         </div>
-        <div className="px-2 py-1 rounded bg-slate-900/90 text-[10px] text-slate-400 border border-slate-800">
-          WhatsApp Automation: <span className="text-emerald-400 font-semibold">Active & Synced</span>
+        <div className="px-2 py-1 rounded bg-slate-900/90 text-[10px] text-slate-400 border border-slate-800 flex items-center justify-between">
+          <span>WhatsApp Messaging</span>
+          <span className="text-emerald-400 font-semibold">Connected</span>
         </div>
         <button
           onClick={handleSignOut}
@@ -226,17 +234,29 @@ export function Sidebar({
         {content}
       </aside>
 
-      {isMobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex" id="mobile-sidebar-backdrop">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
-            onClick={onCloseMobile}
-          />
-          <div className="relative w-72 max-w-[80vw] h-full shadow-2xl z-10">
-            {content}
+      <AnimatePresence>
+        {isMobileOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden flex" id="mobile-sidebar-backdrop">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              onClick={onCloseMobile}
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="relative w-72 max-w-[80vw] h-full shadow-2xl z-10"
+            >
+              {content}
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </>
   );
 }

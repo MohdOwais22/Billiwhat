@@ -13,11 +13,11 @@ interface AddProductModalProps {
 export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalProps) {
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
-  const [hsn, setHSN] = useState('8544');
+  const [hsn, setHSN] = useState('');
   const [unit, setUnit] = useState('Pcs');
-  const [stockQuantity, setStockQuantity] = useState(50);
-  const [minStockAlert, setMinStockAlert] = useState(15);
-  const [unitPrice, setUnitPrice] = useState(1200);
+  const [stockQuantity, setStockQuantity] = useState('');
+  const [minStockAlert, setMinStockAlert] = useState('');
+  const [unitPrice, setUnitPrice] = useState('');
   const [taxRate, setTaxRate] = useState(18);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -26,8 +26,9 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || unitPrice <= 0) {
-      setErrorMsg('Product name and valid unit price are required.');
+    const priceNum = parseFloat(unitPrice);
+    if (!name.trim() || isNaN(priceNum) || priceNum <= 0) {
+      setErrorMsg('Product name and a valid selling price greater than zero are required.');
       return;
     }
 
@@ -35,17 +36,20 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
       setIsSubmitting(true);
       setErrorMsg(null);
 
+      const parsedStock = stockQuantity !== '' ? parseFloat(stockQuantity) : 0;
+      const parsedMinAlert = minStockAlert !== '' ? parseFloat(minStockAlert) : 10;
+
       await addNewProduct({
-        name,
-        sku: sku || name.slice(0, 4).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900),
-        hsnSac: hsn,
-        hsnCode: hsn,
+        name: name.trim(),
+        sku: sku.trim() || undefined,
+        hsnSac: hsn.trim() || undefined,
+        hsnCode: hsn.trim() || undefined,
         unit,
-        stockQuantity: Number(stockQuantity),
-        lowStockThreshold: Number(minStockAlert),
-        reorderLevel: Number(minStockAlert),
-        unitPrice: Number(unitPrice),
-        sellingPrice: Number(unitPrice),
+        stockQuantity: parsedStock,
+        lowStockThreshold: parsedMinAlert,
+        reorderLevel: parsedMinAlert,
+        unitPrice: priceNum,
+        sellingPrice: priceNum,
         gstRate: Number(taxRate),
         taxRate: Number(taxRate),
       });
@@ -74,7 +78,8 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/60 transition"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -97,7 +102,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="e.g. Polycab Industrial Wire 2.5mm"
+              placeholder="e.g. Copper Cable 2.5 sq mm"
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               id="prod-name-input"
             />
@@ -106,20 +111,20 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                SKU / Item Code
+                SKU / Code <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 type="text"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                placeholder="e.g. POL-WIR-25"
+                placeholder="Auto-generated if blank"
                 className="w-full px-3 py-2 text-xs font-mono uppercase border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                HSN / SAC Code
+                HSN / SAC Code <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 type="text"
@@ -139,12 +144,14 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               </label>
               <input
                 type="number"
-                min="0"
-                step="1"
+                min="0.01"
+                step="0.01"
                 value={unitPrice}
-                onChange={(e) => setUnitPrice(Number(e.target.value))}
+                onChange={(e) => setUnitPrice(e.target.value)}
                 required
+                placeholder="0.00"
                 className="w-full px-3 py-2 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                id="prod-price-input"
               />
             </div>
 
@@ -171,29 +178,50 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Opening Stock
+                Opening Stock <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 type="number"
                 min="0"
+                step="any"
                 value={stockQuantity}
-                onChange={(e) => setStockQuantity(Number(e.target.value))}
+                onChange={(e) => setStockQuantity(e.target.value)}
+                placeholder="0"
                 className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Low Stock Alert (Min)
+                Low Stock Alert (Min) <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 type="number"
-                min="1"
+                min="0"
+                step="any"
                 value={minStockAlert}
-                onChange={(e) => setMinStockAlert(Number(e.target.value))}
+                onChange={(e) => setMinStockAlert(e.target.value)}
+                placeholder="10"
                 className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Applicable GST Rate (%)
+            </label>
+            <select
+              value={taxRate}
+              onChange={(e) => setTaxRate(Number(e.target.value))}
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+            >
+              <option value={18}>18% GST (Standard)</option>
+              <option value={12}>12% GST</option>
+              <option value={28}>28% GST</option>
+              <option value={5}>5% GST</option>
+              <option value={0}>0% GST (Exempt / Nil rated)</option>
+            </select>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
@@ -201,14 +229,14 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition shadow-xs"
+              className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition shadow-xs cursor-pointer"
               id="submit-product-btn"
             >
               {isSubmitting ? 'Saving...' : 'Add Product'}

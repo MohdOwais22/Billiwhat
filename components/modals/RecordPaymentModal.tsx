@@ -26,14 +26,18 @@ export function RecordPaymentModal({
   initialAmount,
 }: RecordPaymentModalProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
-    initialInvoice?.customer_id || initialCustomerId || customers[0]?.id || ''
+    initialInvoice?.customer_id || initialCustomerId || ''
   );
-  const [amount, setAmount] = useState<number>(
-    initialAmount || (initialInvoice?.balance_due ? initialInvoice.balance_due : 10000)
+  const [amount, setAmount] = useState<string>(
+    initialAmount !== undefined
+      ? String(initialAmount)
+      : initialInvoice?.balance_due
+      ? String(initialInvoice.balance_due)
+      : ''
   );
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [referenceNumber, setReferenceNumber] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -63,14 +67,15 @@ export function RecordPaymentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomerId || amount <= 0) {
+    const amountNum = parseFloat(amount);
+    if (!selectedCustomerId || isNaN(amountNum) || amountNum <= 0) {
       setErrorMsg('Please select a valid customer and specify an amount greater than 0.');
       return;
     }
 
-    if (initialInvoice && amount > initialInvoice.balance_due) {
+    if (initialInvoice && amountNum > initialInvoice.balance_due) {
       setErrorMsg(
-        `Payment amount (${formatINR(amount)}) cannot exceed the invoice remaining balance (${formatINR(initialInvoice.balance_due)}).`
+        `Payment amount (${formatINR(amountNum)}) cannot exceed the invoice remaining balance (${formatINR(initialInvoice.balance_due)}).`
       );
       return;
     }
@@ -82,7 +87,7 @@ export function RecordPaymentModal({
       const res = await recordNewPayment({
         customerId: selectedCustomerId,
         invoiceId: initialInvoice?.id || undefined,
-        amount: Number(amount),
+        amount: amountNum,
         method: paymentMethod,
         paymentMethod,
         reference: referenceNumber || (paymentMethod === 'cash' ? `CASH-${Date.now().toString().slice(-6)}` : undefined),
@@ -251,6 +256,7 @@ export function RecordPaymentModal({
                 className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                 id="payment-customer-select"
               >
+                <option value="">-- Select Customer Account * --</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.business_name ? `${c.business_name} (${c.name})` : c.name}
@@ -266,10 +272,11 @@ export function RecordPaymentModal({
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  step="1"
+                  min="0.01"
+                  step="0.01"
                   value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
                   required
                   className="w-full px-3 py-2 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   id="payment-amount-input"

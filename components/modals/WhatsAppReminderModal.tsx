@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, MessageSquareText, Copy, Check, ExternalLink, ShieldCheck } from 'lucide-react';
-import { CollectionQueueItem, InvoiceWithDetails } from '@/types/database';
+import { X, MessageSquareText, Copy, Check, ExternalLink } from 'lucide-react';
+import { CollectionQueueItem, InvoiceWithDetails, Organization } from '@/types/database';
 import { formatINR } from '@/lib/utils/formatters';
 
 interface WhatsAppReminderModalProps {
@@ -10,6 +10,7 @@ interface WhatsAppReminderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSent?: () => void;
+  organization?: Organization | null;
 }
 
 export function WhatsAppReminderModal({
@@ -17,60 +18,63 @@ export function WhatsAppReminderModal({
   isOpen,
   onClose,
   onSent,
+  organization,
 }: WhatsAppReminderModalProps) {
   const [templateLanguage, setTemplateLanguage] = useState<'hinglish' | 'english' | 'hindi'>('hinglish');
   const [copied, setCopied] = useState(false);
-  const [isLogged, setIsLogged] = useState(false);
 
   if (!isOpen || !item) return null;
 
   const anyItem = item as any;
-  const customerName = anyItem.customerName || anyItem.customer?.business_name || anyItem.customer?.name || 'Valued Client';
+  const customerName = anyItem.customerName || anyItem.customer?.business_name || anyItem.customer?.name || 'Customer';
   const outstandingAmount = typeof anyItem.outstandingAmount === 'number' ? anyItem.outstandingAmount : (anyItem.balance_due ?? anyItem.total ?? 0);
-  const invoiceNumber = anyItem.invoiceNumber || anyItem.invoice_number || 'WB/26-27/0842';
-  const phone = anyItem.phone || anyItem.customer?.phone || '+91 98765 43210';
+  const invoiceNumber = anyItem.invoiceNumber || anyItem.invoice_number || 'Pending Invoice';
+  const phone = anyItem.phone || anyItem.customer?.phone || anyItem.customer?.whatsapp_phone || anyItem.whatsappPhone || '';
 
   const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
   const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
+  const businessName = organization?.name || organization?.legal_name || 'Accounts Department';
+
   const templates = {
     hinglish: `Namaste ${customerName} ji,
 
-Yeh *Shree Balaji Enterprises* se payment reminder hai.
+Yeh *${businessName}* se payment reminder hai.
 
 Aapke Invoice *#${invoiceNumber}* ka balance *${formatINR(outstandingAmount)}* pending hai.
 
-Kripya niche diye gaye UPI link se direct payment settle karein:
-upi://pay?pa=shreebalaji@okaxis&pn=ShreeBalajiEnterprises&am=${outstandingAmount}&cu=INR
+Kripya payment jald se jald transfer/UPI se settle karein aur reference screenshot share karein reconciliation ke liye.
 
-Payment ke baad screenshot share karein reconciliation ke liye. Dhanyawaad!`,
+Dhanyawaad!
+*${businessName}*`,
 
     english: `Dear ${customerName},
 
-Greetings from *Shree Balaji Enterprises*.
+Greetings from *${businessName}*.
 
 This is a gentle payment reminder regarding Invoice *#${invoiceNumber}* with an outstanding balance of *${formatINR(outstandingAmount)}*.
 
-Please settle the amount via our verified UPI or bank transfer:
-UPI ID: shreebalaji@okaxis
-Amount: ${formatINR(outstandingAmount)}
+Kindly remit the payment via your preferred bank transfer or UPI mode and share the transaction reference for ledger update.
 
-Thank you for your continued business partnership.`,
+Thank you,
+*${businessName}*`,
 
     hindi: `नमस्ते ${customerName} जी,
 
-यह *श्री बालाजी एंटरप्राइजेज* की ओर से भुगतान अनुस्मारक है।
+यह *${businessName}* की ओर से भुगतान अनुस्मारक है।
 
 आपके चालान संख्या *#${invoiceNumber}* की बकाया राशि *${formatINR(outstandingAmount)}* देय है।
 
-कृपया समय पर भुगतान कर सहयोग प्रदान करें।
-UPI: shreebalaji@okaxis
+कृपया समय पर भुगतान कर सहयोग प्रदान करें और भुगतान पावती साझा करें।
 
-धन्यवाद!`,
+धन्यवाद!
+*${businessName}*`,
   };
 
   const currentMessage = templates[templateLanguage];
-  const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(currentMessage)}`;
+  const waUrl = formattedPhone
+    ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(currentMessage)}`
+    : `https://wa.me/?text=${encodeURIComponent(currentMessage)}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(currentMessage);
@@ -80,7 +84,6 @@ UPI: shreebalaji@okaxis
 
   const handleOpenWhatsApp = () => {
     window.open(waUrl, '_blank', 'noopener,noreferrer');
-    setIsLogged(true);
     setTimeout(() => {
       if (onSent) onSent();
       onClose();
@@ -98,13 +101,14 @@ UPI: shreebalaji@okaxis
             <div>
               <h3 className="text-base font-bold">WhatsApp Payment Reminder</h3>
               <p className="text-xs text-emerald-100">
-                Ready-to-send invoice summary with UPI payment link
+                Ready-to-send payment follow-up message
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition"
+            className="p-1.5 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,7 +119,7 @@ UPI: shreebalaji@okaxis
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Recipient Party</span>
               <p className="font-bold text-slate-900">{customerName}</p>
-              <p className="text-slate-500 font-mono text-[11px]">{phone}</p>
+              <p className="text-slate-500 font-mono text-[11px]">{phone || 'No phone recorded'}</p>
             </div>
             <div className="text-right font-mono">
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Due Amount</span>
@@ -126,15 +130,15 @@ UPI: shreebalaji@okaxis
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
             <button
               onClick={() => setTemplateLanguage('hinglish')}
-              className={`flex-1 py-1 px-2 rounded font-semibold text-center transition ${
+              className={`flex-1 py-1 px-2 rounded font-semibold text-center transition cursor-pointer ${
                 templateLanguage === 'hinglish' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
               }`}
             >
-              Hinglish (Standard)
+              Hinglish
             </button>
             <button
               onClick={() => setTemplateLanguage('english')}
-              className={`flex-1 py-1 px-2 rounded font-semibold text-center transition ${
+              className={`flex-1 py-1 px-2 rounded font-semibold text-center transition cursor-pointer ${
                 templateLanguage === 'english' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
               }`}
             >
@@ -142,7 +146,7 @@ UPI: shreebalaji@okaxis
             </button>
             <button
               onClick={() => setTemplateLanguage('hindi')}
-              className={`flex-1 py-1 px-2 rounded font-semibold text-center transition ${
+              className={`flex-1 py-1 px-2 rounded font-semibold text-center transition cursor-pointer ${
                 templateLanguage === 'hindi' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
               }`}
             >
@@ -154,17 +158,17 @@ UPI: shreebalaji@okaxis
             <div className="absolute top-2 right-2">
               <button
                 onClick={handleCopy}
-                className="p-1.5 bg-white border border-emerald-200 rounded-md text-slate-600 hover:text-slate-900 shadow-2xs transition flex items-center gap-1 text-[11px]"
+                className="p-1.5 bg-white border border-emerald-200 rounded-md text-slate-600 hover:text-slate-900 shadow-2xs transition flex items-center gap-1 text-[11px] cursor-pointer"
                 title="Copy Text"
               >
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700 font-medium">Copied</span>
+                    <span className="text-emerald-700 font-semibold">Copied</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3.5 h-3.5 text-slate-500" />
                     <span>Copy</span>
                   </>
                 )}
@@ -173,44 +177,22 @@ UPI: shreebalaji@okaxis
             {currentMessage}
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Opens WhatsApp directly with the pre-filled invoice and UPI payment link.</span>
-          </div>
-        </div>
-
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition"
-          >
-            Cancel
-          </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <button
-              onClick={handleCopy}
-              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition shadow-2xs flex items-center gap-1.5"
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+              Cancel
             </button>
             <button
+              type="button"
               onClick={handleOpenWhatsApp}
-              disabled={isLogged}
-              className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-xs flex items-center gap-1.5"
-              id="confirm-send-whatsapp-btn"
+              className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              id="send-whatsapp-btn"
             >
-              {isLogged ? (
-                <>
-                  <Check className="w-4 h-4 text-white" />
-                  <span>Opened WhatsApp!</span>
-                </>
-              ) : (
-                <>
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Open in WhatsApp</span>
-                </>
-              )}
+              <span>Send via WhatsApp</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

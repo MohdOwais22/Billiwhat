@@ -112,14 +112,16 @@ BEGIN
       trade_name,
       legal_name,
       state_code,
-      is_active
+      e_invoice_enabled,
+      e_way_bill_enabled
     ) VALUES (
       v_new_org_id,
       v_clean_gstin,
       trim(p_name),
       COALESCE(NULLIF(trim(p_legal_name), ''), trim(p_name)),
       COALESCE(v_state_code, '27'),
-      true
+      false,
+      false
     )
     ON CONFLICT DO NOTHING;
   END IF;

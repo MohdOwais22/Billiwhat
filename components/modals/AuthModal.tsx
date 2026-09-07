@@ -22,7 +22,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(
     !isSupabaseConfigured
-      ? 'Supabase Authentication is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+      ? 'Authentication service is not configured. Please verify environment credentials.'
       : null
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -73,7 +73,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
       console.error('Demo login failed:', err);
       setErrorMsg(
         err?.message ||
-          'Demo login unavailable. WhatsApp OTP requires an active Twilio/WhatsApp provider in Supabase.'
+          'Demo login unavailable. WhatsApp OTP requires an active SMS/WhatsApp provider.'
       );
     } finally {
       setIsDemoLoading(false);
@@ -97,7 +97,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     setSuccessMsg(null);
 
     if (!isSupabaseConfigured) {
-      setErrorMsg('Supabase Authentication is not configured in this environment.');
+      setErrorMsg('Authentication is not configured in this environment.');
       return;
     }
 
@@ -112,7 +112,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     try {
       const client = getSupabaseClient();
       if (!client) {
-        throw new Error('Supabase client authentication is unavailable.');
+        throw new Error('Authentication client is unavailable.');
       }
 
       const { error } = await client.auth.signInWithOtp({
@@ -154,7 +154,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     try {
       const client = getSupabaseClient();
       if (!client) {
-        throw new Error('Supabase client authentication is unavailable.');
+        throw new Error('Authentication client is unavailable.');
       }
 
       const formatted = formatPhone(phone);

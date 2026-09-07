@@ -164,22 +164,64 @@ export type Receivable = {
   invoice_id: string;
   customer_id: string;
   status: ReceivableStatus;
-  assigned_to?: string | null;
-  notes?: string | null;
+  priority_score?: number | null;
+  last_reminder_at?: string | null;
+  next_reminder_at?: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at?: string | null;
 };
 
 export type Reminder = {
   id: string;
   organization_id: string;
-  invoice_id: string;
   customer_id: string;
+  invoice_id: string;
   channel: 'whatsapp' | 'sms' | 'email';
-  status: 'scheduled' | 'sent' | 'failed' | 'cancelled';
+  reminder_type: string;
   scheduled_at: string;
   sent_at?: string | null;
+  status: 'scheduled' | 'sent' | 'failed' | 'cancelled';
+  message?: string | null;
   created_at: string;
+};
+
+export type MessageLog = {
+  id: string;
+  organization_id: string;
+  customer_id?: string | null;
+  channel: string;
+  direction: string;
+  message_type?: string | null;
+  external_message_id?: string | null;
+  language?: string | null;
+  text_content?: string | null;
+  parsed_intent?: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type AuditLog = {
+  id: string;
+  organization_id: string;
+  user_id?: string | null;
+  action: string;
+  entity_type: string;
+  entity_id?: string | null;
+  metadata?: Record<string, any> | null;
+  created_at: string;
+};
+
+export type Subscription = {
+  id: string;
+  organization_id: string;
+  plan: string;
+  status: string;
+  provider?: string | null;
+  provider_subscription_id?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 };
 
 export type PeriodType = 'today' | 'this_week' | 'this_month' | 'last_month' | 'custom';

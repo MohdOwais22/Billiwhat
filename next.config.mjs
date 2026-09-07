@@ -1,5 +1,3 @@
-import { withSentryConfig } from '@sentry/nextjs';
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -14,13 +12,17 @@ const hasSentry = Boolean(
   (process.env.SENTRY_ORG && process.env.SENTRY_PROJECT)
 );
 
-export default hasSentry
-  ? withSentryConfig(nextConfig, {
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
-      silent: true,
-      widenClientFileUpload: true,
-      hideSourceMaps: true,
-      disableLogger: true,
-    })
-  : nextConfig;
+let finalConfig = nextConfig;
+if (hasSentry) {
+  const { withSentryConfig } = await import('@sentry/nextjs');
+  finalConfig = withSentryConfig(nextConfig, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    silent: true,
+    widenClientFileUpload: true,
+    hideSourceMaps: true,
+    disableLogger: true,
+  });
+}
+
+export default finalConfig;

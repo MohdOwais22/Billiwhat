@@ -644,7 +644,7 @@ export async function addNewProduct(params: {
   const { data: authData } = await client.auth.getUser();
 
   if (!authData?.user) {
-    throw new Error('Please sign in to your Supabase account to add a product.');
+    throw new Error('Please sign in to your account to add a product.');
   }
 
   const { data: memberData } = await client
@@ -1203,36 +1203,50 @@ export async function createNewInvoice(params: {
 
   let invNumber = params.invoiceNumber?.trim();
   if (!invNumber) {
-    // Concurrency-safe sequential invoice numbering
-    const prefix = orgData?.invoice_prefix || 'INV';
-    let currentSeq = orgData?.invoice_sequence ?? 0;
-
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const nextSeq = currentSeq + 1;
-      const { data: updatedOrg } = await client
-        .from('organizations')
-        .update({ invoice_sequence: nextSeq, updated_at: new Date().toISOString() })
-        .eq('id', orgId)
-        .eq('invoice_sequence', currentSeq)
-        .select('invoice_sequence')
-        .maybeSingle();
-
-      if (updatedOrg) {
-        invNumber = `${prefix}-${String(nextSeq).padStart(4, '0')}`;
-        break;
+    // 1. Try atomic DB function get_next_invoice_number
+    try {
+      const { data: rpcNumber, error: rpcErr } = await client.rpc('get_next_invoice_number', {
+        p_org_id: orgId,
+      });
+      if (!rpcErr && rpcNumber) {
+        invNumber = rpcNumber;
       }
-
-      // Concurrency conflict: fetch refreshed sequence and retry
-      const { data: refOrg } = await client
-        .from('organizations')
-        .select('invoice_sequence')
-        .eq('id', orgId)
-        .single();
-      currentSeq = refOrg?.invoice_sequence ?? (currentSeq + 1);
+    } catch {
+      // Ignore and fallback to optimistic concurrency lock loop
     }
 
+    // 2. Fallback: Concurrency-safe optimistic sequence update
     if (!invNumber) {
-      invNumber = `${prefix}-${Date.now().toString().slice(-6)}`;
+      const prefix = orgData?.invoice_prefix || 'INV';
+      let currentSeq = orgData?.invoice_sequence ?? 0;
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const nextSeq = currentSeq + 1;
+        const { data: updatedOrg } = await client
+          .from('organizations')
+          .update({ invoice_sequence: nextSeq, updated_at: new Date().toISOString() })
+          .eq('id', orgId)
+          .eq('invoice_sequence', currentSeq)
+          .select('invoice_sequence')
+          .maybeSingle();
+
+        if (updatedOrg) {
+          invNumber = `${prefix}-${String(nextSeq).padStart(4, '0')}`;
+          break;
+        }
+
+        // Concurrency conflict: fetch refreshed sequence and retry
+        const { data: refOrg } = await client
+          .from('organizations')
+          .select('invoice_sequence')
+          .eq('id', orgId)
+          .single();
+        currentSeq = refOrg?.invoice_sequence ?? (currentSeq + 1);
+      }
+
+      if (!invNumber) {
+        invNumber = `${prefix}-${Date.now().toString().slice(-6)}`;
+      }
     }
   }
 
@@ -1337,7 +1351,7 @@ export async function recordNewPayment(params: {
   const { data: authData } = await client.auth.getUser();
 
   if (!authData?.user) {
-    throw new Error('Please sign in to your Supabase account to record a payment.');
+    throw new Error('Please sign in to your account to record a payment.');
   }
 
   const { data: memberData } = await client
@@ -1466,7 +1480,7 @@ export async function recordNewPayment(params: {
       action: 'RECORD_PAYMENT',
       entity_type: 'payment',
       entity_id: payment.id,
-      details: {
+      metadata: {
         invoice_id: params.invoiceId || null,
         invoice_number: invoiceRecord?.invoice_number || null,
         customer_id: params.customerId,

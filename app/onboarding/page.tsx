@@ -134,7 +134,7 @@ function OnboardingContent() {
       if (!isSupabaseConfigured) {
         setIsCheckingAuth(false);
         setErrorMsg(
-          'Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+          'Authentication service is not configured. Please verify environment credentials.'
         );
         return;
       }

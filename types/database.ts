@@ -1,13 +1,23 @@
+export type UserProfile = {
+  id: string; // References auth.users.id
+  display_name?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 export type Organization = {
   id: string;
   name: string;
   legal_name?: string | null;
   phone?: string | null;
   email?: string | null;
-  address?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
   city?: string | null;
   state?: string | null;
+  state_code?: string | null;
   pincode?: string | null;
+  country?: string | null;
   created_at: string;
   updated_at?: string;
 };

@@ -1023,74 +1023,86 @@ export async function processWhatsAppPaymentMessage(message: string) {
 
 /**
  * Creates a new organization in Supabase and sets the authenticated user as Owner
+ * Executes atomically using the database function create_organization_for_current_user
+ * or the dedicated atomic server route, updating public.user_profiles where applicable.
  */
 export async function createOrganizationAndOwner(params: {
   name: string;
   legalName?: string;
   phone?: string;
   email?: string;
-  address?: string;
+  addressLine1?: string;
+  addressLine2?: string;
   city?: string;
   state?: string;
+  stateCode?: string;
   pincode?: string;
+  country?: string;
   gstin?: string;
+  displayName?: string;
 }) {
   const client = createBrowserClient();
-  const { data: authData } = await client.auth.getUser();
+  const { data: authData, error: authErr } = await client.auth.getUser();
 
-  if (!authData?.user) {
-    throw new Error('Please sign in to your account before setting up an organization.');
+  if (authErr || !authData?.user) {
+    throw new Error('Please sign in to your account before setting up a workspace.');
   }
 
-  // 1. Insert into organizations table
-  const { data: org, error: orgError } = await client
-    .from('organizations')
-    .insert({
-      name: params.name,
-      legal_name: params.legalName || params.name,
-      phone: params.phone || authData.user.phone || null,
-      email: params.email || authData.user.email || null,
-      address: params.address || null,
-      city: params.city || null,
-      state: params.state || null,
-      pincode: params.pincode || null,
-    })
-    .select()
-    .single();
-
-  if (orgError) {
-    console.error('Error creating organization:', orgError);
-    throw new Error(orgError.message || 'Failed to create organization record.');
-  }
-
-  // 2. Insert into organization_members table setting role to owner
-  const { error: memberError } = await client
-    .from('organization_members')
-    .insert({
-      organization_id: org.id,
-      user_id: authData.user.id,
-      role: 'owner',
+  // 1. Try atomic database RPC first if deployed
+  try {
+    const { data: rpcData, error: rpcError } = await client.rpc('create_organization_for_current_user', {
+      p_name: params.name.trim(),
+      p_legal_name: params.legalName?.trim() || params.name.trim(),
+      p_phone: params.phone?.trim() || null,
+      p_email: params.email?.trim() || null,
+      p_address_line1: params.addressLine1?.trim() || null,
+      p_address_line2: params.addressLine2?.trim() || null,
+      p_city: params.city?.trim() || null,
+      p_state: params.state?.trim() || null,
+      p_state_code: params.stateCode?.trim() || null,
+      p_pincode: params.pincode?.trim() || null,
+      p_country: params.country?.trim() || 'India',
+      p_gstin: params.gstin?.trim().toUpperCase() || null,
+      p_display_name: params.displayName?.trim() || null,
     });
 
-  if (memberError) {
-    console.error('Error adding user as organization owner:', memberError);
-    throw new Error(memberError.message || 'Failed to assign owner permissions for organization.');
+    if (!rpcError && rpcData?.success && rpcData?.organization_id) {
+      return { id: rpcData.organization_id };
+    }
+  } catch (rpcErr) {
+    console.info('Database RPC unavailable, falling back to atomic server API:', rpcErr);
   }
 
-  // 3. Optional: Create GST Profile if GSTIN provided
-  if (params.gstin && params.gstin.trim().length > 0) {
-    const cleanGstin = params.gstin.trim().toUpperCase();
-    const stateCode = cleanGstin.substring(0, 2);
-    await client.from('gst_profiles').insert({
-      organization_id: org.id,
-      gstin: cleanGstin,
-      trade_name: params.name,
-      legal_name: params.legalName || params.name,
-      state_code: stateCode || '27',
-      is_active: true,
-    });
+  // 2. Call the server route which verifies auth.uid(), checks existing memberships,
+  // creates the organization and owner membership atomically, and syncs user_profiles.
+  const res = await fetch('/api/onboarding/create-organization', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: params.name.trim(),
+      legalName: params.legalName?.trim() || params.name.trim(),
+      phone: params.phone?.trim() || undefined,
+      email: params.email?.trim() || undefined,
+      addressLine1: params.addressLine1?.trim() || undefined,
+      addressLine2: params.addressLine2?.trim() || undefined,
+      city: params.city?.trim() || undefined,
+      state: params.state?.trim() || undefined,
+      stateCode: params.stateCode?.trim() || undefined,
+      pincode: params.pincode?.trim() || undefined,
+      country: params.country?.trim() || 'India',
+      gstin: params.gstin?.trim().toUpperCase() || undefined,
+      displayName: params.displayName?.trim() || undefined,
+    }),
+  });
+
+  const responseData = await res.json().catch(() => null);
+
+  if (!res.ok || !responseData?.success) {
+    throw new Error(responseData?.error || 'Something went wrong while creating your workspace. Please try again.');
   }
 
-  return org;
+  return { id: responseData.organizationId };
 }
 

@@ -1,8 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { sanitizeSupabaseUrl, sanitizeSupabaseKey } from './config';
 
 export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const supabaseUrl = sanitizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = sanitizeSupabaseKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return null;
@@ -16,7 +17,7 @@ export function getSupabaseClient() {
 }
 
 export const isSupabaseConfigured = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  sanitizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+  sanitizeSupabaseKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 );
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { getSupabaseEnv } from '@/lib/supabase/config';
 
 /**
  * Temporary Internal Demo Authentication Handler
@@ -13,9 +14,7 @@ import { cookies } from 'next/headers';
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const { url: supabaseUrl, anonKey: supabaseAnonKey, serviceRoleKey } = getSupabaseEnv();
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return NextResponse.json(
@@ -168,17 +167,26 @@ export async function POST(req: NextRequest) {
     const user = signInResult.data.user;
 
     // Check if user has an organization
-    const { data: member } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle();
+    let hasOrg = false;
+    try {
+      const { data: member, error: memberErr } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!memberErr && member?.organization_id) {
+        hasOrg = true;
+      }
+    } catch {
+      hasOrg = false;
+    }
 
     return NextResponse.json({
       success: true,
-      hasOrganization: Boolean(member?.organization_id),
-      targetUrl: member?.organization_id ? '/dashboard' : '/onboarding?next=/dashboard',
+      hasOrganization: hasOrg,
+      targetUrl: hasOrg ? '/dashboard' : '/onboarding?next=/dashboard',
     });
   } catch (err: any) {
     console.error('Demo authentication error:', err);

@@ -14,7 +14,11 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-export function BigIdeaSection() {
+interface BigIdeaSectionProps {
+  onTryLive: () => void;
+}
+
+export function BigIdeaSection({ onTryLive }: BigIdeaSectionProps) {
   const workflowSteps = [
     {
       step: '01',
@@ -172,6 +176,21 @@ export function BigIdeaSection() {
               );
             })}
           </div>
+        </div>
+
+        {/* Contextual CTA for Live Demo */}
+        <div className="mt-14 pt-8 border-t border-slate-200/60 text-center max-w-xl mx-auto space-y-4">
+          <p className="text-sm font-semibold text-slate-500 tracking-wider uppercase">
+            Want to see it in action?
+          </p>
+          <button
+            onClick={onTryLive}
+            className="inline-flex items-center gap-1.5 px-6 py-3 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-sm font-bold text-slate-800 rounded-xl transition shadow-2xs hover:shadow-xs cursor-pointer group"
+            id="how-it-works-try-live-btn"
+          >
+            <span>Try WhatsBill Live</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
         </div>
       </div>
     </section>

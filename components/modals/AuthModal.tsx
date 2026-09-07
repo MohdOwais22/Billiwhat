@@ -10,9 +10,10 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  entryContext?: 'login' | 'start' | 'try';
 }
 
-export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }: AuthModalProps) {
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -189,11 +190,17 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             {getBrandInitials()}
           </div>
           <h3 className="text-lg font-extrabold text-slate-900" id="auth-modal-title">
-            {step === 'phone' ? 'Log in or Sign up' : 'Enter Verification Code'}
+            {step === 'phone' ? (
+              entryContext === 'login' ? 'Welcome back' :
+              entryContext === 'try' ? 'Try WhatsBill' :
+              'Start using WhatsBill'
+            ) : 'Enter Verification Code'}
           </h3>
           <p className="text-xs text-slate-500 mt-1">
             {step === 'phone'
-              ? `Access your secure ${APP_NAME} web panel`
+              ? (entryContext === 'login'
+                  ? `Access your secure ${APP_NAME} web panel`
+                  : `Get instant access to your ${APP_NAME} live engine`)
               : 'Please enter the 6-digit WhatsApp OTP sent to your number'}
           </p>
         </div>

@@ -28,6 +28,7 @@ interface MarketingPageProps {
 export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
   const router = useRouter();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authContext, setAuthContext] = useState<'login' | 'start' | 'try'>('start');
   const [session, setSession] = useState<any>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
 
@@ -55,12 +56,25 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
     };
   }, []);
 
-  const handleStartFree = () => {
+  const handleOpenAuth = (context: 'login' | 'start' | 'try') => {
     if (session?.user) {
       onOpenDashboard();
     } else {
+      setAuthContext(context);
       setIsAuthModalOpen(true);
     }
+  };
+
+  const handleStartFree = () => {
+    handleOpenAuth('start');
+  };
+
+  const handleLoginContext = () => {
+    handleOpenAuth('login');
+  };
+
+  const handleTryContext = () => {
+    handleOpenAuth('try');
   };
 
   const handleScrollToWorkflow = () => {
@@ -75,7 +89,7 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
       {/* Sticky Marketing Header Navigation */}
       <MarketingNavbar
         onOpenApp={onOpenDashboard}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAuthModal={handleLoginContext}
         session={session}
         isSessionLoading={isSessionLoading}
       />
@@ -93,7 +107,7 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
         <ProblemSection />
 
         {/* Section 3: The Big Idea (Workflow + Deterministic Engine) */}
-        <BigIdeaSection />
+        <BigIdeaSection onTryLive={handleTryContext} />
 
         {/* Section 4: Real WhatsApp Experience (Interactive Chat & Voice) */}
         <WhatsAppExperienceSection />
@@ -147,6 +161,7 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
           // Callback after successful real verification
           router.refresh();
         }}
+        entryContext={authContext}
       />
     </div>
   );

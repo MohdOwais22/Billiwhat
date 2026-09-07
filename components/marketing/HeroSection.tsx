@@ -74,15 +74,6 @@ export function HeroSection({
                 <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
                 <span>See how it works</span>
               </button>
-
-              <button
-                onClick={onOpenApp}
-                className="w-full sm:w-auto px-4 py-3.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-emerald-700 transition flex items-center justify-center gap-1.5"
-                id="hero-explore-live-app-btn"
-              >
-                <span>Try Live App</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
             </div>
 
             {/* Trust Line */}

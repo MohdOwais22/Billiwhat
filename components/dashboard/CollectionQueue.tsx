@@ -36,42 +36,44 @@ export function CollectionQueue({
   const totalOutstandingInQueue = items.reduce((acc, it) => acc + it.outstandingAmount, 0);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs flex flex-col h-full" id="priority-collection-queue-section">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
-        <div>
-          <div className="flex items-center gap-2">
+    <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs flex flex-col h-full overflow-hidden min-w-0" id="priority-collection-queue-section">
+      <div className="flex flex-col gap-2 pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
               <ClockAlert className="w-3.5 h-3.5" />
             </div>
-            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">
               Priority Collection Queue
             </h2>
-            <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
-              {items.length} Follow-ups
-            </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Rule-based ranking by overdue aging, credit exposure, and payment velocity
-          </p>
+          <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+            {items.length} Follow-ups
+          </span>
         </div>
 
-        <div className="flex items-center gap-1 self-start sm:self-auto text-xs bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-          <button
-            onClick={() => setFilterPriority('all')}
-            className={`px-2 py-0.5 rounded font-semibold text-[11px] transition ${
-              filterPriority === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            All ({items.length})
-          </button>
-          <button
-            onClick={() => setFilterPriority('critical')}
-            className={`px-2 py-0.5 rounded font-semibold text-[11px] transition ${
-              filterPriority === 'critical' ? 'bg-rose-500 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Critical
-          </button>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs text-slate-500 min-w-0 flex-1">
+            Rule-based ranking by overdue aging & credit exposure
+          </p>
+          <div className="flex items-center gap-1 text-xs bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+            <button
+              onClick={() => setFilterPriority('all')}
+              className={`px-2 py-0.5 rounded font-semibold text-[11px] transition ${
+                filterPriority === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All ({items.length})
+            </button>
+            <button
+              onClick={() => setFilterPriority('critical')}
+              className={`px-2 py-0.5 rounded font-semibold text-[11px] transition ${
+                filterPriority === 'critical' ? 'bg-rose-500 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Critical
+            </button>
+          </div>
         </div>
       </div>
 

@@ -20,6 +20,7 @@ import { ProductsPage } from '@/components/products/ProductsPage';
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { CollectionsPage } from '@/components/collections/CollectionsPage';
 import { PaymentsPage } from '@/components/payments/PaymentsPage';
+import { WhatsAppAssistantView } from '@/components/whatsapp/WhatsAppAssistantView';
 import { useDashboard } from '@/context/DashboardContext';
 import { calculateDateRange } from '@/lib/services/dashboardService';
 
@@ -79,6 +80,21 @@ export default function DashboardPage() {
 
   if (currentRoute === 'payments') {
     return <PaymentsPage />;
+  }
+
+  if (currentRoute === 'whatsapp_ai') {
+    const fallbackOrg = dashboardData?.organization || {
+      id: 'default_org',
+      name: 'WhatsBill Business',
+      country: 'IN',
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      invoice_prefix: 'INV',
+      invoice_sequence: 1000,
+      created_at: new Date().toISOString(),
+    };
+
+    return <WhatsAppAssistantView organization={fallbackOrg} />;
   }
 
   if (currentRoute !== 'dashboard') {
@@ -179,14 +195,14 @@ export default function DashboardPage() {
 
           {/* Sales Trend Chart & Quick Insights */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 min-w-0">
               <SalesTrendChart
                 data={dashboardData.salesTrend || []}
                 totalSalesInPeriod={dashboardData.metrics.totalSales}
                 totalCollectedInPeriod={dashboardData.metrics.collected}
               />
             </div>
-            <div>
+            <div className="lg:col-span-1 min-w-0">
               <QuickInsights
                 insights={
                   dashboardData.quickInsights || {
@@ -205,7 +221,7 @@ export default function DashboardPage() {
 
           {/* Collection Queue & Recent Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 min-w-0">
               <CollectionQueue
                 items={dashboardData.collectionQueue || []}
                 onTriggerWhatsApp={handleQueueWhatsApp}
@@ -216,7 +232,7 @@ export default function DashboardPage() {
                 onSelectInvoice={handleSelectInvoice}
               />
             </div>
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
               <RecentInvoices
                 invoices={dashboardData.recentInvoices || []}
                 onSelectInvoice={handleSelectInvoice}

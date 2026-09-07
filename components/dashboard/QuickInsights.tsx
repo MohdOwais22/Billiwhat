@@ -31,27 +31,27 @@ export function QuickInsights({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div
           onClick={onNavigateToReceivables}
           className="p-3.5 rounded-xl border border-rose-200/80 bg-rose-50/40 hover:bg-rose-50 transition cursor-pointer flex flex-col justify-between group"
           id="insight-overdue-card"
         >
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">
+          <div className="flex items-start justify-between gap-1">
+            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wide leading-tight min-w-0">
               Overdue Invoices
             </span>
-            <AlertCircle className="w-4 h-4 text-rose-600" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           </div>
-          <div className="my-2">
+          <div className="my-2 flex items-baseline gap-1">
             <span className="text-2xl font-extrabold text-rose-950 font-mono">
               {insights.overdueInvoicesCount}
             </span>
-            <span className="text-xs text-rose-700 ml-1 font-medium">bills past due</span>
+            <span className="text-xs text-rose-700 font-medium truncate">bills past due</span>
           </div>
           <div className="text-[11px] font-semibold text-rose-800 group-hover:underline flex items-center gap-1">
             <span>Review Aging Bills</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3 h-3 shrink-0" />
           </div>
         </div>
 
@@ -60,21 +60,21 @@ export function QuickInsights({
           className="p-3.5 rounded-xl border border-amber-200/80 bg-amber-50/40 hover:bg-amber-50 transition cursor-pointer flex flex-col justify-between group"
           id="insight-followups-card"
         >
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
+          <div className="flex items-start justify-between gap-1">
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide leading-tight min-w-0">
               Follow-ups Pending
             </span>
-            <Users className="w-4 h-4 text-amber-600" />
+            <Users className="w-4 h-4 text-amber-600 shrink-0" />
           </div>
-          <div className="my-2">
+          <div className="my-2 flex items-baseline gap-1">
             <span className="text-2xl font-extrabold text-amber-950 font-mono">
               {insights.customersNeedingFollowupCount}
             </span>
-            <span className="text-xs text-amber-700 ml-1 font-medium">credit parties</span>
+            <span className="text-xs text-amber-700 font-medium truncate">credit parties</span>
           </div>
           <div className="text-[11px] font-semibold text-amber-800 group-hover:underline flex items-center gap-1">
             <span>Open Collection Queue</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3 h-3 shrink-0" />
           </div>
         </div>
 
@@ -83,21 +83,21 @@ export function QuickInsights({
           className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-100/80 transition cursor-pointer flex flex-col justify-between group"
           id="insight-low-stock-card"
         >
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+          <div className="flex items-start justify-between gap-1">
+            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide leading-tight min-w-0">
               Low Stock Alerts
             </span>
-            <Boxes className="w-4 h-4 text-slate-600" />
+            <Boxes className="w-4 h-4 text-slate-600 shrink-0" />
           </div>
-          <div className="my-2">
+          <div className="my-2 flex items-baseline gap-1">
             <span className="text-2xl font-extrabold text-slate-900 font-mono">
               {insights.lowStockProductsCount}
             </span>
-            <span className="text-xs text-slate-500 ml-1 font-medium">SKUs near zero</span>
+            <span className="text-xs text-slate-500 font-medium truncate">SKUs near zero</span>
           </div>
           <div className="text-[11px] font-semibold text-slate-700 group-hover:underline flex items-center gap-1">
             <span>Manage Inventory</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3 h-3 shrink-0" />
           </div>
         </div>
 
@@ -105,19 +105,19 @@ export function QuickInsights({
           className="p-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 flex flex-col justify-between"
           id="insight-efficiency-card"
         >
-          <div className="flex items-start justify-between">
-            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+          <div className="flex items-start justify-between gap-1">
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide leading-tight min-w-0">
               Collection Recovery
             </span>
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
           </div>
-          <div className="my-2">
+          <div className="my-2 flex items-baseline gap-1">
             <span className="text-2xl font-extrabold text-emerald-950 font-mono">
               {insights.collectionEfficiencyRate}%
             </span>
-            <span className="text-xs text-emerald-700 ml-1 font-medium">settlement rate</span>
+            <span className="text-xs text-emerald-700 font-medium truncate">settlement rate</span>
           </div>
-          <div className="text-[11px] font-medium text-emerald-800">
+          <div className="text-[11px] font-medium text-emerald-800 truncate">
             Healthy credit discipline
           </div>
         </div>

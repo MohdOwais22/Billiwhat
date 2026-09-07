@@ -21,12 +21,14 @@ import {
 interface HeroSectionProps {
   onOpenApp: () => void;
   onOpenDemoModal: () => void;
+  onOpenPlayground: () => void;
   onScrollToWorkflow: () => void;
 }
 
 export function HeroSection({
   onOpenApp,
   onOpenDemoModal,
+  onOpenPlayground,
   onScrollToWorkflow,
 }: HeroSectionProps) {
   return (
@@ -55,11 +57,11 @@ export function HeroSection({
               {APP_NAME} helps Indian distributors turn WhatsApp orders into invoices, collect payments, follow up on outstanding bills, and keep business records up to date.
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+            {/* CTA Action Buttons Cluster */}
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-2">
               <button
                 onClick={onOpenDemoModal}
-                className="w-full sm:w-auto px-6 py-3.5 text-sm sm:text-base font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition shadow-sm hover:shadow-md flex items-center justify-center gap-2 cursor-pointer group"
+                className="w-full sm:w-auto h-11 sm:h-12 px-6 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl transition-all shadow-xs hover:shadow-sm inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shrink-0 group"
                 id="hero-start-free-btn"
               >
                 <span>Start free</span>
@@ -67,11 +69,20 @@ export function HeroSection({
               </button>
 
               <button
+                onClick={onOpenPlayground}
+                className="w-full sm:w-auto h-11 sm:h-12 px-5 text-sm font-semibold text-slate-800 hover:text-emerald-800 bg-white hover:bg-slate-50 active:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl transition-all shadow-2xs inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+                id="hero-try-playground-btn"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Try Playground</span>
+              </button>
+
+              <button
                 onClick={onScrollToWorkflow}
-                className="w-full sm:w-auto px-5 py-3.5 text-sm sm:text-base font-semibold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto h-11 sm:h-12 px-3.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                 id="hero-how-it-works-btn"
               >
-                <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                <Play className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
                 <span>See how it works</span>
               </button>
             </div>

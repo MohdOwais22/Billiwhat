@@ -20,6 +20,7 @@ import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { MarketingFooter } from './MarketingFooter';
 import { AuthModal } from '@/components/modals/AuthModal';
+import { PlaygroundModal } from './PlaygroundModal';
 
 interface MarketingPageProps {
   onOpenDashboard: () => void;
@@ -28,6 +29,7 @@ interface MarketingPageProps {
 export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
   const router = useRouter();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false);
   const [authContext, setAuthContext] = useState<'login' | 'start' | 'try'>('start');
   const [session, setSession] = useState<any>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
@@ -74,7 +76,14 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
   };
 
   const handleTryContext = () => {
-    handleOpenAuth('try');
+    setIsPlaygroundOpen(true);
+  };
+
+  const handleTalkToUs = () => {
+    window.open(
+      'https://wa.me/919876543210?text=Hi%20WhatsBill%20Team%2C%20I%20would%20like%20to%20learn%20more%20about%20WhatsBill',
+      '_blank'
+    );
   };
 
   const handleScrollToWorkflow = () => {
@@ -100,6 +109,7 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
         <HeroSection
           onOpenApp={handleStartFree}
           onOpenDemoModal={handleStartFree}
+          onOpenPlayground={() => setIsPlaygroundOpen(true)}
           onScrollToWorkflow={handleScrollToWorkflow}
         />
 
@@ -142,15 +152,25 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
         {/* Section 14: Final High-Conversion CTA */}
         <FinalCtaSection
           onStartFree={handleStartFree}
-          onTalkToUs={handleStartFree}
-          onOpenApp={handleStartFree}
+          onTalkToUs={handleTalkToUs}
+          onOpenApp={session?.user ? onOpenDashboard : handleStartFree}
         />
       </main>
 
       {/* Footer */}
       <MarketingFooter
-        onOpenApp={handleStartFree}
-        onOpenContact={handleStartFree}
+        onOpenApp={session?.user ? onOpenDashboard : handleStartFree}
+        onOpenContact={handleTalkToUs}
+      />
+
+      {/* Interactive Anonymous Login-Free Playground Modal */}
+      <PlaygroundModal
+        isOpen={isPlaygroundOpen}
+        onClose={() => setIsPlaygroundOpen(false)}
+        onOpenAuthModal={() => {
+          setIsPlaygroundOpen(false);
+          handleStartFree();
+        }}
       />
 
       {/* Unified Closeable Canonical WhatsApp OTP Authentication Modal */}

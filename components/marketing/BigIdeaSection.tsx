@@ -185,11 +185,11 @@ export function BigIdeaSection({ onTryLive }: BigIdeaSectionProps) {
           </p>
           <button
             onClick={onTryLive}
-            className="inline-flex items-center gap-1.5 px-6 py-3 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-sm font-bold text-slate-800 rounded-xl transition shadow-2xs hover:shadow-xs cursor-pointer group"
+            className="inline-flex items-center justify-center gap-2 h-11 px-5 border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-sm font-semibold text-slate-800 hover:text-emerald-800 rounded-xl transition-all shadow-2xs cursor-pointer whitespace-nowrap group"
             id="how-it-works-try-live-btn"
           >
             <span>Try WhatsBill Live</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
           </button>
         </div>
       </div>

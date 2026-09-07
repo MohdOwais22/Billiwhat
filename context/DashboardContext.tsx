@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, notFound } from 'next/navigation';
 import {
   CollectionQueueItem,
   DashboardData,
@@ -77,6 +77,30 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [customRange, setCustomRange] = useState<{ startDate: string; endDate: string } | undefined>();
 
+  // Validate path during render time so Next.js App Router's notFound() error is correctly thrown during render (not inside client-side useEffect)
+  if (pathname) {
+    const slug = pathname.replace('/dashboard', '').replace(/^\//, '');
+    const validSlugs = [
+      '',
+      'sales',
+      'invoices',
+      'purchases',
+      'customers',
+      'inventory',
+      'products',
+      'receivables',
+      'payments',
+      'expenses',
+      'reports',
+      'settings',
+      'whatsapp',
+      'whatsapp_ai',
+    ];
+    if (!validSlugs.includes(slug)) {
+      notFound();
+    }
+  }
+
   // Data State
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [organization, setOrganization] = useState<Organization | undefined>(undefined);
@@ -91,10 +115,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (pathname) {
       const slug = pathname.replace('/dashboard', '').replace(/^\//, '');
+      const validSlugs = [
+        '',
+        'sales',
+        'invoices',
+        'purchases',
+        'customers',
+        'inventory',
+        'products',
+        'receivables',
+        'payments',
+        'expenses',
+        'reports',
+        'settings',
+        'whatsapp',
+        'whatsapp_ai',
+      ];
+      
+      if (!validSlugs.includes(slug)) {
+        return;
+      }
+
       if (!slug) {
         setCurrentRoute('dashboard');
       } else if (slug === 'invoices' || slug === 'sales') {
         setCurrentRoute('sales');
+      } else if (slug === 'purchases') {
+        setCurrentRoute('purchases');
       } else if (slug === 'customers') {
         setCurrentRoute('customers');
       } else if (slug === 'inventory' || slug === 'products') {
@@ -103,10 +150,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setCurrentRoute('receivables');
       } else if (slug === 'payments') {
         setCurrentRoute('payments');
+      } else if (slug === 'expenses') {
+        setCurrentRoute('expenses');
       } else if (slug === 'reports') {
         setCurrentRoute('reports');
       } else if (slug === 'settings') {
         setCurrentRoute('settings');
+      } else if (slug === 'whatsapp' || slug === 'whatsapp_ai') {
+        setCurrentRoute('whatsapp_ai');
       }
     }
   }, [pathname]);

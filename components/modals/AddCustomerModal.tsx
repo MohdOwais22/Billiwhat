@@ -59,7 +59,13 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs" id="add-customer-modal-backdrop">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+      id="add-customer-modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
@@ -95,7 +101,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="e.g. Mahavir Hardware & Sanitary"
+              placeholder="e.g. Enterprise / Business Name"
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               id="cust-company-input"
             />
@@ -111,7 +117,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                placeholder="e.g. Ketan Shah"
+                placeholder="e.g. Contact Person Name"
                 className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 id="cust-name-input"
               />

@@ -5,5 +5,16 @@
     height: 100%;
     margin: 0;
     padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent iOS/iPadOS Safari from auto-zooming on focus while keeping desktop typography crisp */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input, select, textarea {
+      font-size: inherit;
+    }
   }
 }

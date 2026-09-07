@@ -17,7 +17,6 @@ import {
   ChevronRight,
   ShieldCheck,
   X,
-  ExternalLink,
   LogOut,
 } from 'lucide-react';
 import { Organization } from '@/types/database';
@@ -39,11 +38,11 @@ export type NavRoute =
 
 export interface SidebarProps {
   organization?: Organization;
+  isLoading?: boolean;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   currentRoute?: NavRoute;
   onNavigate?: (route: NavRoute) => void;
-  onBackToWebsite?: () => void;
 }
 
 interface NavItemDef {
@@ -67,11 +66,11 @@ const PRIMARY_NAV: NavItemDef[] = [
 
 export function Sidebar({
   organization,
+  isLoading = false,
   isMobileOpen = false,
   onCloseMobile,
   currentRoute,
   onNavigate,
-  onBackToWebsite,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -114,29 +113,26 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Organization Switcher & Back to Website */}
-      <div className="px-3 py-3 border-b border-slate-800/80 space-y-2">
-        <button
-          onClick={() => {
-            if (onBackToWebsite) onBackToWebsite();
-          }}
-          className="w-full py-1.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-between transition cursor-pointer"
-          id="sidebar-back-to-website-btn"
+      {/* Organization Info Card */}
+      <div className="px-3 py-3 border-b border-slate-800/80">
+        <div
+          className="p-2.5 rounded-lg bg-slate-800/70 border border-slate-700/60 flex items-center justify-between hover:bg-slate-800 transition group cursor-pointer"
+          id="sidebar-org-card"
         >
-          <span>← Marketing Website</span>
-          <ExternalLink className="w-3.5 h-3.5 text-emerald-300" />
-        </button>
-
-        <div className="p-2.5 rounded-lg bg-slate-800/70 border border-slate-700/60 flex items-center justify-between hover:bg-slate-800 transition group cursor-pointer" id="sidebar-org-card">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded bg-slate-700 flex items-center justify-center text-slate-300 shrink-0">
               <Building2 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate group-hover:text-emerald-400 transition">
-                {organization?.name || 'Active Business'}
-              </p>
-              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
+              {organization?.name ? (
+                <p className="text-xs font-semibold text-white truncate group-hover:text-emerald-400 transition">
+                  {organization.name}
+                </p>
+              ) : isLoading ? (
+                <div className="h-3.5 w-28 bg-slate-700/80 rounded animate-pulse my-0.5" id="sidebar-org-skeleton" />
+              ) : null}
+
+              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                 {organization?.gstin ? `GST: ${organization.gstin}` : 'Business Account'}
               </p>
@@ -242,7 +238,7 @@ export function Sidebar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
               onClick={onCloseMobile}
             />
             <motion.div

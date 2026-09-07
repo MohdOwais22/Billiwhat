@@ -207,7 +207,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
       id="auth-modal-backdrop"
     >
       <div

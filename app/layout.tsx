@@ -1,6 +1,13 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { APP_NAME } from '@/config/brand';
 import './globals.css';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#0F172A',
+};
 
 export const metadata: Metadata = {
   title: `${APP_NAME} — AI Business Assistant for Indian Distributors`,

@@ -89,7 +89,7 @@ export function MarketingNavbar({ onOpenApp, onOpenAuthModal, session, isSession
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
           isScrolled
             ? 'bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs py-3'
-            : 'bg-white/80 backdrop-blur-xs border-b border-slate-100 py-4'
+            : 'bg-white/80 backdrop-blur-sm border-b border-slate-100 py-4'
         }`}
         id="main-marketing-navbar"
       >
@@ -168,7 +168,7 @@ export function MarketingNavbar({ onOpenApp, onOpenAuthModal, session, isSession
         <>
           {/* Backdrop Overlay */}
           <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-150"
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-150"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />

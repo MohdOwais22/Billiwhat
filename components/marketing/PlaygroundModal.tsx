@@ -176,7 +176,7 @@ export function PlaygroundModal({ isOpen, onClose, onOpenAuthModal }: Playground
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
       aria-modal="true"
       role="dialog"
@@ -518,7 +518,7 @@ export function PlaygroundModal({ isOpen, onClose, onOpenAuthModal }: Playground
 
         {/* Simulated Invoice Preview Overlay */}
         {previewInvoiceData && (
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-30 flex items-center justify-center p-3 sm:p-5 animate-in fade-in">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-5 animate-in fade-in">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[90%]">
               {/* Header */}
               <div className="bg-slate-900 text-white p-4 flex items-center justify-between">

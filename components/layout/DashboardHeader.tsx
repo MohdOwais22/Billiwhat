@@ -9,10 +9,8 @@ import {
   Menu,
   CheckCircle2,
   Calendar,
-  Sparkles,
   ChevronDown,
   LogOut,
-  Building2,
   UserCheck,
 } from 'lucide-react';
 import { Organization, GstProfile } from '@/types/database';
@@ -22,16 +20,17 @@ import { createClient } from '@/lib/supabase/client';
 interface DashboardHeaderProps {
   organization?: Organization;
   gstProfile?: GstProfile | null;
+  isLoading?: boolean;
   onOpenMobileMenu: () => void;
   onSearch?: (query: string) => void;
   userEmail?: string;
   dataSource?: string;
-  onOpenAuthModal?: () => void;
 }
 
 export function DashboardHeader({
   organization,
   gstProfile,
+  isLoading = false,
   onOpenMobileMenu,
   onSearch,
   userEmail,
@@ -58,13 +57,13 @@ export function DashboardHeader({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-slate-200 px-4 sm:px-6 py-3.5" id="dashboard-main-header">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-4 sm:px-6 py-3.5" id="dashboard-main-header">
       <div className="flex items-center justify-between gap-4">
         {/* Left: Mobile Toggle & Context Greetings */}
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onOpenMobileMenu}
-            className="lg:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition"
+            className="lg:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer"
             aria-label="Toggle navigation"
             id="mobile-nav-toggle-btn"
           >
@@ -75,9 +74,13 @@ export function DashboardHeader({
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <span>{greeting},</span>
-                <span className="text-emerald-700 font-extrabold truncate">
-                  {organization?.name || 'My Business'}
-                </span>
+                {organization?.name ? (
+                  <span className="text-emerald-700 font-extrabold truncate">
+                    {organization.name}
+                  </span>
+                ) : isLoading ? (
+                  <span className="inline-block h-4 w-32 bg-slate-200 rounded animate-pulse my-0.5" id="header-org-skeleton" />
+                ) : null}
               </h1>
               {gstProfile?.gstin && (
                 <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono font-medium px-2 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
@@ -90,11 +93,6 @@ export function DashboardHeader({
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 {currentDateFormatted}
-              </span>
-              <span className="hidden md:inline-block text-slate-300">•</span>
-              <span className="hidden md:flex items-center gap-1 text-slate-600">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                Supabase RLS Enforced
               </span>
             </div>
           </div>
@@ -120,7 +118,7 @@ export function DashboardHeader({
                 setShowNotifications(!showNotifications);
                 setShowUserMenu(false);
               }}
-              className="relative p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition"
+              className="relative p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               aria-label="Notifications"
               id="header-notifications-btn"
             >
@@ -148,7 +146,7 @@ export function DashboardHeader({
                 setShowUserMenu(!showUserMenu);
                 setShowNotifications(false);
               }}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition text-left"
+              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition text-left cursor-pointer"
               id="header-user-menu-btn"
             >
               <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs shadow-xs">
@@ -168,10 +166,10 @@ export function DashboardHeader({
                 <div className="px-3 py-2 border-b border-slate-100">
                   <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    Supabase User
+                    User Profile
                   </p>
                   <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
-                    {userEmail || 'No active session'}
+                    {userEmail || 'Active session'}
                   </p>
                 </div>
                 <div className="py-1 text-xs text-slate-700 space-y-0.5">
@@ -193,7 +191,7 @@ export function DashboardHeader({
                 <div className="pt-1 border-t border-slate-100">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-md transition font-medium"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-md transition font-medium cursor-pointer"
                     id="header-logout-btn"
                   >
                     <LogOut className="w-3.5 h-3.5" />

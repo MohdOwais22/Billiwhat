@@ -36,11 +36,13 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
 
       await addNewCustomer({
         name,
+        businessName: companyName,
         companyName,
         phone,
         email,
         gstin,
         creditLimit: Number(creditLimit),
+        creditDays: Number(paymentTermsDays),
         paymentTermsDays: Number(paymentTermsDays),
       });
 

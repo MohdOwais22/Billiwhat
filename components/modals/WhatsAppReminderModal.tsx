@@ -25,8 +25,8 @@ export function WhatsAppReminderModal({
   if (!isOpen || !item) return null;
 
   const anyItem = item as any;
-  const customerName = anyItem.customerName || anyItem.customer?.company_name || anyItem.customer?.name || 'Valued Client';
-  const outstandingAmount = typeof anyItem.outstandingAmount === 'number' ? anyItem.outstandingAmount : (anyItem.balance_due ?? anyItem.total_amount ?? 0);
+  const customerName = anyItem.customerName || anyItem.customer?.business_name || anyItem.customer?.name || 'Valued Client';
+  const outstandingAmount = typeof anyItem.outstandingAmount === 'number' ? anyItem.outstandingAmount : (anyItem.balance_due ?? anyItem.total ?? 0);
   const invoiceNumber = anyItem.invoiceNumber || anyItem.invoice_number || 'WB/26-27/0842';
   const phone = anyItem.phone || anyItem.customer?.phone || '+91 98765 43210';
 

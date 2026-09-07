@@ -246,7 +246,6 @@ export function getPaymentStatusConfig(status: PaymentStatus): {
 } {
   switch (status) {
     case 'completed':
-    case 'cleared':
       return {
         label: 'Completed',
         badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -271,14 +270,9 @@ export function getPaymentStatusConfig(status: PaymentStatus): {
         label: 'Cancelled',
         badgeClass: 'bg-slate-100 text-slate-500 border-slate-200 line-through',
       };
-    case 'reversed':
-      return {
-        label: 'Reversed',
-        badgeClass: 'bg-orange-50 text-orange-700 border-orange-200',
-      };
     default:
       return {
-        label: status,
+        label: status as string,
         badgeClass: 'bg-slate-50 text-slate-700 border-slate-200',
       };
   }

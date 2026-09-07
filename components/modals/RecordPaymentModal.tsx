@@ -83,14 +83,17 @@ export function RecordPaymentModal({
         customerId: selectedCustomerId,
         invoiceId: initialInvoice?.id || undefined,
         amount: Number(amount),
+        method: paymentMethod,
         paymentMethod,
+        reference: referenceNumber || (paymentMethod === 'cash' ? `CASH-${Date.now().toString().slice(-6)}` : undefined),
         referenceNumber: referenceNumber || (paymentMethod === 'cash' ? `CASH-${Date.now().toString().slice(-6)}` : undefined),
+        paidAt: paymentDate,
         paymentDate,
         notes: notes || (initialInvoice ? `Payment for Invoice ${initialInvoice.invoice_number}` : 'Direct Customer Settlement'),
       });
 
       const selectedCustomerObj = customers.find((c) => c.id === selectedCustomerId);
-      const custName = selectedCustomerObj?.company_name || selectedCustomerObj?.name || 'Customer';
+      const custName = selectedCustomerObj?.business_name || selectedCustomerObj?.name || 'Customer';
 
       setReceiptResult({
         receiptSummary: res.receipt_summary,
@@ -250,7 +253,7 @@ export function RecordPaymentModal({
               >
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.company_name ? `${c.company_name} (${c.name})` : c.name}
+                    {c.business_name ? `${c.business_name} (${c.name})` : c.name}
                   </option>
                 ))}
               </select>

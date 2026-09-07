@@ -12,6 +12,7 @@ import {
   InvoiceWithDetails,
   Organization,
   Payment,
+  PaymentMethod,
   PaymentWithCustomer,
   PeriodType,
   Product,
@@ -117,6 +118,11 @@ export function getEmptyDashboardData(dateRange: DateRange): DashboardData {
   const emptyOrg: Organization = {
     id: '',
     name: 'My Organization',
+    country: 'India',
+    currency: 'INR',
+    timezone: 'Asia/Kolkata',
+    invoice_prefix: 'INV',
+    invoice_sequence: 1,
     created_at: new Date().toISOString(),
   };
 
@@ -200,7 +206,7 @@ async function fetchFromSupabase(
     paymentsRes,
   ] = await Promise.all([
     supabase.from('organizations').select('*').eq('id', orgId).single(),
-    supabase.from('gst_profiles').select('*').eq('organization_id', orgId).eq('is_active', true).maybeSingle(),
+    supabase.from('gst_profiles').select('*').eq('organization_id', orgId).limit(1).maybeSingle(),
     supabase.from('customers').select('*').eq('organization_id', orgId),
     supabase.from('products').select('*').eq('organization_id', orgId),
     supabase.from('invoices').select('*').eq('organization_id', orgId),
@@ -211,6 +217,11 @@ async function fetchFromSupabase(
   const organization: Organization = orgRes.data || {
     id: orgId,
     name: 'My Business',
+    country: 'India',
+    currency: 'INR',
+    timezone: 'Asia/Kolkata',
+    invoice_prefix: 'INV',
+    invoice_sequence: 1,
     created_at: new Date().toISOString(),
   };
   const gstProfile: GstProfile | null = gstRes.data ?? null;
@@ -246,7 +257,7 @@ function computeDataFromSets(
   const paymentsByCustomer = new Map<string, number>();
 
   allPayments.forEach((p) => {
-    if (p.status === 'bounced') return;
+    if (p.status === 'bounced' || p.status === 'failed' || p.status === 'cancelled') return;
 
     if (p.invoice_id) {
       paymentsByInvoice.set(
@@ -268,9 +279,9 @@ function computeDataFromSets(
   const enrichedInvoices: InvoiceWithDetails[] = allInvoices.map((inv) => {
     const cust = customerMap.get(inv.customer_id) || null;
     const paid = paymentsByInvoice.get(inv.id) || 0;
-    const balance = Math.max(0, Number(inv.total_amount) - paid);
+    const balance = Math.max(0, Number(inv.total) - paid);
 
-    const due = new Date(inv.due_date);
+    const due = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
     due.setHours(0, 0, 0, 0);
     const diffDays = Math.round((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
     const daysOverdue = diffDays > 0 ? diffDays : 0;
@@ -285,15 +296,15 @@ function computeDataFromSets(
   });
 
   const invoicesInPeriod = enrichedInvoices.filter((inv) => {
-    return inv.invoice_date >= dateRange.startDate && inv.invoice_date <= dateRange.endDate;
+    return inv.issue_date >= dateRange.startDate && inv.issue_date <= dateRange.endDate;
   });
 
   const paymentsInPeriod = allPayments.filter((p) => {
-    return p.payment_date >= dateRange.startDate && p.payment_date <= dateRange.endDate && p.status !== 'bounced';
+    return p.paid_at >= dateRange.startDate && p.paid_at <= dateRange.endDate && p.status === 'completed';
   });
 
   const validPeriodInvoices = invoicesInPeriod.filter((inv) => inv.status !== 'cancelled');
-  const totalSales = validPeriodInvoices.reduce((acc, inv) => acc + Number(inv.total_amount), 0);
+  const totalSales = validPeriodInvoices.reduce((acc, inv) => acc + Number(inv.total), 0);
   const totalSalesCount = validPeriodInvoices.length;
 
   const activeInvoices = enrichedInvoices.filter((inv) => inv.status !== 'cancelled');
@@ -301,7 +312,7 @@ function computeDataFromSets(
   const outstandingInvoicesCount = activeInvoices.filter((inv) => inv.balance_due > 0).length;
 
   const overdueInvoices = activeInvoices.filter((inv) => {
-    const due = new Date(inv.due_date);
+    const due = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
     due.setHours(0, 0, 0, 0);
     return due < today && inv.balance_due > 0;
   });
@@ -325,11 +336,11 @@ function computeDataFromSets(
   const collectionQueue = buildCollectionQueue(activeInvoices, customerMap, allPayments);
 
   const recentInvoices = [...enrichedInvoices]
-    .sort((a, b) => new Date(b.invoice_date).getTime() - new Date(a.invoice_date).getTime())
+    .sort((a, b) => new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime())
     .slice(0, 8);
 
   const recentPayments: PaymentWithCustomer[] = [...allPayments]
-    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+    .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())
     .slice(0, 8)
     .map((p) => {
       const cust = customerMap.get(p.customer_id) || null;
@@ -342,12 +353,12 @@ function computeDataFromSets(
     });
 
   const lowStockItems = products
-    .filter((p) => Number(p.stock_quantity) <= Number(p.min_stock_alert))
+    .filter((p) => Number(p.stock_quantity) <= Number(p.low_stock_threshold))
     .map((p) => ({
       id: p.id,
       name: p.name,
       stock_quantity: p.stock_quantity,
-      min_stock_alert: p.min_stock_alert,
+      low_stock_threshold: p.low_stock_threshold,
       unit: p.unit,
     }));
 
@@ -383,14 +394,14 @@ function buildCollectionQueue(
   return unpaidInvoices.map((inv) => {
     const cust = customerMap.get(inv.customer_id);
     const customerName = cust?.name || 'Valued Customer';
-    const companyName = cust?.company_name || '';
+    const companyName = cust?.business_name || '';
     const phone = cust?.phone || '';
     const daysOverdue = inv.days_overdue;
     const balance = inv.balance_due;
 
     const custPayments = allPayments.filter((p) => p.customer_id === inv.customer_id);
     const lastPayment = custPayments.sort(
-      (a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+      (a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime()
     )[0];
 
     let priority: 'critical' | 'high' | 'medium' | 'normal' = 'normal';
@@ -416,12 +427,12 @@ function buildCollectionQueue(
       companyName,
       phone,
       outstandingAmount: balance,
-      totalAmount: Number(inv.total_amount),
+      totalAmount: Number(inv.total),
       daysOverdue,
-      dueDate: inv.due_date,
+      dueDate: inv.due_date || inv.issue_date,
       suggestedAction,
       priority,
-      lastPaymentDate: lastPayment ? lastPayment.payment_date : null,
+      lastPaymentDate: lastPayment ? lastPayment.paid_at : null,
       creditLimit: cust?.credit_limit || null,
     };
   });
@@ -432,12 +443,18 @@ function buildCollectionQueue(
  */
 export async function addNewCustomer(params: {
   name: string;
+  businessName?: string;
   companyName?: string;
   phone: string;
+  whatsappPhone?: string;
   email?: string;
   gstin?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
   creditLimit?: number;
+  creditDays?: number;
   paymentTermsDays?: number;
+  notes?: string;
 }) {
   const client = createBrowserClient();
   const { data: authData } = await client.auth.getUser();
@@ -458,14 +475,18 @@ export async function addNewCustomer(params: {
 
   const { data, error } = await client.from('customers').insert({
     organization_id: memberData.organization_id,
-    name: params.name,
-    company_name: params.companyName || null,
-    phone: params.phone,
-    email: params.email || null,
-    gstin: params.gstin || null,
-    credit_limit: params.creditLimit || 200000,
-    payment_terms_days: params.paymentTermsDays || 30,
-    outstanding_balance: 0,
+    name: params.name.trim(),
+    business_name: (params.businessName || params.companyName)?.trim() || null,
+    phone: params.phone.trim(),
+    whatsapp_phone: params.whatsappPhone?.trim() || null,
+    email: params.email?.trim() || null,
+    gstin: params.gstin?.trim().toUpperCase() || null,
+    billing_address: params.billingAddress?.trim() || 'N/A',
+    shipping_address: params.shippingAddress?.trim() || null,
+    credit_limit: params.creditLimit ?? 200000,
+    credit_days: params.creditDays ?? params.paymentTermsDays ?? 30,
+    notes: params.notes?.trim() || null,
+    is_active: true,
   }).select().single();
 
   if (error) throw error;
@@ -478,11 +499,17 @@ export async function addNewCustomer(params: {
 export async function addNewProduct(params: {
   name: string;
   sku?: string;
+  barcode?: string;
+  hsnSac?: string;
   hsnCode?: string;
   unit?: string;
-  unitPrice: number;
+  unitPrice?: number;
+  sellingPrice?: number;
+  purchasePrice?: number;
   gstRate?: number;
+  taxRate?: number;
   stockQuantity?: number;
+  lowStockThreshold?: number;
   reorderLevel?: number;
 }) {
   const client = createBrowserClient();
@@ -502,16 +529,23 @@ export async function addNewProduct(params: {
     throw new Error('No organization found for current user session.');
   }
 
+  const sellingPrice = params.sellingPrice ?? params.unitPrice ?? 0;
+  const taxRate = params.taxRate ?? params.gstRate ?? 18;
+  const lowStockThreshold = params.lowStockThreshold ?? params.reorderLevel ?? 10;
+
   const { data, error } = await client.from('products').insert({
     organization_id: memberData.organization_id,
-    name: params.name,
-    sku: params.sku || null,
-    hsn_code: params.hsnCode || null,
-    unit: params.unit || 'PCS',
-    unit_price: params.unitPrice,
-    gst_rate: params.gstRate || 18,
-    stock_quantity: params.stockQuantity || 0,
-    min_stock_alert: params.reorderLevel || 10,
+    name: params.name.trim(),
+    sku: params.sku?.trim() || null,
+    barcode: params.barcode?.trim() || null,
+    hsn_sac: (params.hsnSac || params.hsnCode)?.trim() || null,
+    unit: params.unit?.trim() || 'PCS',
+    selling_price: sellingPrice,
+    purchase_price: params.purchasePrice ?? 0,
+    tax_rate: taxRate,
+    stock_quantity: params.stockQuantity ?? 0,
+    low_stock_threshold: lowStockThreshold,
+    is_active: true,
   }).select().single();
 
   if (error) throw error;
@@ -523,18 +557,23 @@ export async function addNewProduct(params: {
  */
 export async function createNewInvoice(params: {
   customerId: string;
-  invoiceDate: string;
+  issueDate?: string;
+  invoiceDate?: string;
   dueDate: string;
   invoiceNumber?: string;
   subtotal?: number;
   taxTotal?: number;
   totalAmount?: number;
   items?: Array<{
-    productId: string;
+    productId?: string;
     productName: string;
     quantity: number;
     unitPrice: number;
-    gstRate: number;
+    gstRate?: number;
+    taxRate?: number;
+    unit?: string;
+    hsnSac?: string;
+    hsnCode?: string;
   }>;
   notes?: string;
 }) {
@@ -562,68 +601,108 @@ export async function createNewInvoice(params: {
     subtotal = 0;
     taxTotal = 0;
     params.items.forEach((item) => {
+      const itemTaxRate = item.taxRate ?? item.gstRate ?? 18;
       const itemSubtotal = item.quantity * item.unitPrice;
-      const itemTax = (itemSubtotal * item.gstRate) / 100;
+      const itemTax = (itemSubtotal * itemTaxRate) / 100;
       subtotal += itemSubtotal;
       taxTotal += itemTax;
     });
   }
 
-  const totalAmount = params.totalAmount || (subtotal + taxTotal);
-  
-  let invNumber = params.invoiceNumber;
-  if (!invNumber) {
-    // Concurrency-safe sequential invoice numbering: query the latest invoice from Supabase
-    const { data: latestInv, error: latestError } = await client
-      .from('invoices')
-      .select('invoice_number')
-      .eq('organization_id', memberData.organization_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const total = params.totalAmount || (subtotal + taxTotal);
+  const issueDate = params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0];
 
-    if (!latestError && latestInv?.invoice_number) {
-      // Parse the latest invoice number (e.g. "INV-1004" -> 1005, "WB/26-27/1001" -> "WB/26-27/1002")
-      const numMatch = latestInv.invoice_number.match(/\d+$/);
-      if (numMatch) {
-        const lastNum = parseInt(numMatch[0], 10);
-        const nextNumStr = String(lastNum + 1).padStart(numMatch[0].length, '0');
-        invNumber = latestInv.invoice_number.substring(0, latestInv.invoice_number.length - numMatch[0].length) + nextNumStr;
+  let invNumber = params.invoiceNumber?.trim();
+  if (!invNumber) {
+    // Concurrency-safe sequential invoice numbering using optimistic concurrency control on organizations
+    const { data: orgData } = await client
+      .from('organizations')
+      .select('invoice_prefix, invoice_sequence')
+      .eq('id', memberData.organization_id)
+      .single();
+
+    const prefix = orgData?.invoice_prefix || 'INV';
+    let currentSeq = orgData?.invoice_sequence ?? 0;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const nextSeq = currentSeq + 1;
+      const { data: updatedOrg } = await client
+        .from('organizations')
+        .update({ invoice_sequence: nextSeq, updated_at: new Date().toISOString() })
+        .eq('id', memberData.organization_id)
+        .eq('invoice_sequence', currentSeq)
+        .select('invoice_sequence')
+        .maybeSingle();
+
+      if (updatedOrg) {
+        invNumber = `${prefix}-${String(nextSeq).padStart(4, '0')}`;
+        break;
       }
+
+      // Concurrency conflict: fetch refreshed sequence and retry
+      const { data: refOrg } = await client
+        .from('organizations')
+        .select('invoice_sequence')
+        .eq('id', memberData.organization_id)
+        .single();
+      currentSeq = refOrg?.invoice_sequence ?? (currentSeq + 1);
     }
 
     if (!invNumber) {
-      // Fallback if no invoices exist yet
-      invNumber = `INV-1001`;
+      invNumber = `${prefix}-${Date.now().toString().slice(-6)}`;
     }
   }
+
+  const halfTax = Math.round(taxTotal / 2);
 
   const { data: invoice, error: invError } = await client.from('invoices').insert({
     organization_id: memberData.organization_id,
     customer_id: params.customerId,
     invoice_number: invNumber,
-    invoice_date: params.invoiceDate,
+    invoice_type: 'tax_invoice',
+    status: 'issued',
+    issue_date: issueDate,
     due_date: params.dueDate,
-    status: 'unpaid',
     subtotal,
-    tax_total: taxTotal,
-    total_amount: totalAmount,
-    amount_paid: 0,
+    discount_total: 0,
+    taxable_amount: subtotal,
+    cgst: halfTax,
+    sgst: halfTax,
+    igst: 0,
+    cess: 0,
+    total,
+    source: 'web',
+    created_by: authData.user.id,
     notes: params.notes || null,
   }).select().single();
 
   if (invError) throw invError;
 
   if (params.items && params.items.length > 0) {
-    const lineItems = params.items.map((item) => ({
-      invoice_id: invoice.id,
-      product_id: item.productId,
-      description: item.productName,
-      quantity: item.quantity,
-      unit_price: item.unitPrice,
-      gst_rate: item.gstRate,
-      amount: item.quantity * item.unitPrice,
-    }));
+    const lineItems = params.items.map((item, idx) => {
+      const itemTaxRate = item.taxRate ?? item.gstRate ?? 18;
+      const itemTaxable = item.quantity * item.unitPrice;
+      const itemTax = (itemTaxable * itemTaxRate) / 100;
+      const itemHalfTax = Math.round(itemTax / 2);
+      return {
+        invoice_id: invoice.id,
+        product_id: item.productId || null,
+        description: item.productName,
+        hsn_sac: item.hsnSac || item.hsnCode || null,
+        quantity: item.quantity,
+        unit: item.unit || 'PCS',
+        unit_price: item.unitPrice,
+        discount: 0,
+        taxable_amount: itemTaxable,
+        tax_rate: itemTaxRate,
+        cgst: itemHalfTax,
+        sgst: itemHalfTax,
+        igst: 0,
+        cess: 0,
+        line_total: Math.round(itemTaxable + itemTax),
+        sort_order: idx,
+      };
+    });
 
     await client.from('invoice_items').insert(lineItems);
   }
@@ -639,8 +718,11 @@ export async function recordNewPayment(params: {
   customerId: string;
   invoiceId?: string;
   amount: number;
-  paymentDate: string;
-  paymentMethod: string;
+  paidAt?: string;
+  paymentDate?: string;
+  method?: string;
+  paymentMethod?: string;
+  reference?: string;
   referenceNumber?: string;
   notes?: string;
   allowOverpayment?: boolean;
@@ -673,7 +755,7 @@ export async function recordNewPayment(params: {
   // Verify customer belongs to this organization
   const { data: customer, error: custError } = await client
     .from('customers')
-    .select('id, name, company_name, organization_id')
+    .select('id, name, business_name, organization_id')
     .eq('id', params.customerId)
     .eq('organization_id', orgId)
     .single();
@@ -690,7 +772,7 @@ export async function recordNewPayment(params: {
   if (params.invoiceId) {
     const { data: inv, error: invError } = await client
       .from('invoices')
-      .select('id, invoice_number, total_amount, customer_id, organization_id, status')
+      .select('id, invoice_number, total, customer_id, organization_id, status')
       .eq('id', params.invoiceId)
       .eq('organization_id', orgId)
       .single();
@@ -713,7 +795,7 @@ export async function recordNewPayment(params: {
     );
 
     currentPaidTotal = validPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-    remainingBalance = Math.max(0, Number(inv.total_amount) - currentPaidTotal);
+    remainingBalance = Math.max(0, Number(inv.total) - currentPaidTotal);
 
     // Validate payment amount against remaining invoice balance
     if (amount > remainingBalance + 0.01 && !params.allowOverpayment) {
@@ -723,7 +805,9 @@ export async function recordNewPayment(params: {
     }
   }
 
-  const paymentDateStr = params.paymentDate || new Date().toISOString().split('T')[0];
+  const paymentDateStr = params.paidAt || params.paymentDate || new Date().toISOString().split('T')[0];
+  const payMethod = (params.method || params.paymentMethod || 'cash') as PaymentMethod;
+  const payReference = params.reference || params.referenceNumber || null;
 
   // Insert payment record into payments table
   const { data: payment, error: payError } = await client
@@ -733,11 +817,11 @@ export async function recordNewPayment(params: {
       customer_id: params.customerId,
       invoice_id: params.invoiceId || null,
       amount: amount,
-      payment_date: paymentDateStr,
-      payment_method: params.paymentMethod,
-      reference_number: params.referenceNumber || null,
+      paid_at: paymentDateStr,
+      method: payMethod,
+      reference: payReference,
       status: 'completed',
-      notes: params.notes || null,
+      metadata: params.notes ? { notes: params.notes } : {},
     })
     .select()
     .single();
@@ -750,7 +834,7 @@ export async function recordNewPayment(params: {
 
   if (invoiceRecord) {
     const newTotalPaid = currentPaidTotal + amount;
-    newOutstanding = Math.max(0, Number(invoiceRecord.total_amount) - newTotalPaid);
+    newOutstanding = Math.max(0, Number(invoiceRecord.total) - newTotalPaid);
 
     if (newOutstanding === 0) {
       updatedInvoiceStatus = 'paid';
@@ -766,16 +850,6 @@ export async function recordNewPayment(params: {
       })
       .eq('id', invoiceRecord.id)
       .eq('organization_id', orgId);
-
-    // Update receivables record status
-    await client
-      .from('receivables')
-      .update({
-        status: newOutstanding === 0 ? 'completed' : 'pending',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('invoice_id', invoiceRecord.id)
-      .eq('organization_id', orgId);
   }
 
   // Record transaction in audit_logs
@@ -790,9 +864,9 @@ export async function recordNewPayment(params: {
         invoice_id: params.invoiceId || null,
         invoice_number: invoiceRecord?.invoice_number || null,
         customer_id: params.customerId,
-        customer_name: customer.company_name || customer.name,
+        customer_name: customer.business_name || customer.name,
         amount: amount,
-        payment_method: params.paymentMethod,
+        method: payMethod,
         remaining_balance: newOutstanding,
         status: 'completed',
         notes: params.notes || null,
@@ -803,10 +877,10 @@ export async function recordNewPayment(params: {
     console.warn('Audit log write warning:', auditErr);
   }
 
-  const custName = customer.company_name || customer.name;
+  const custName = customer.business_name || customer.name;
   const receiptSummary = invoiceRecord
-    ? `₹${amount.toLocaleString('en-IN')} ${params.paymentMethod.toUpperCase()} payment recorded against ${invoiceRecord.invoice_number} (${custName}). Remaining outstanding: ₹${newOutstanding.toLocaleString('en-IN')}.`
-    : `₹${amount.toLocaleString('en-IN')} ${params.paymentMethod.toUpperCase()} payment recorded for ${custName}.`;
+    ? `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded against ${invoiceRecord.invoice_number} (${custName}). Remaining outstanding: ₹${newOutstanding.toLocaleString('en-IN')}.`
+    : `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded for ${custName}.`;
 
   return {
     ...payment,
@@ -836,7 +910,7 @@ export async function getInvoicePaymentHistory(invoiceId: string) {
 
   const { data: invoice } = await client
     .from('invoices')
-    .select('id, invoice_number, total_amount, status')
+    .select('id, invoice_number, total, status')
     .eq('id', invoiceId)
     .eq('organization_id', memberData.organization_id)
     .single();
@@ -848,19 +922,19 @@ export async function getInvoicePaymentHistory(invoiceId: string) {
     .select('*')
     .eq('invoice_id', invoiceId)
     .eq('organization_id', memberData.organization_id)
-    .order('payment_date', { ascending: true });
+    .order('paid_at', { ascending: true });
 
   const validPayments = (rawPayments || []).filter(
     (p) => !['failed', 'cancelled', 'reversed', 'bounced'].includes(p.status?.toLowerCase())
   );
 
   const totalPaid = validPayments.reduce((acc, p) => acc + Number(p.amount), 0);
-  const outstanding = Math.max(0, Number(invoice.total_amount) - totalPaid);
+  const outstanding = Math.max(0, Number(invoice.total) - totalPaid);
 
   return {
     payments: validPayments,
     totalPaid,
-    totalAmount: Number(invoice.total_amount),
+    totalAmount: Number(invoice.total),
     outstanding,
     invoiceNumber: invoice.invoice_number,
   };
@@ -948,7 +1022,7 @@ export async function processWhatsAppPaymentMessage(message: string) {
   if (targetInvoiceNum) {
     const { data: inv } = await client
       .from('invoices')
-      .select('id, invoice_number, total_amount, customer_id, organization_id, status')
+      .select('id, invoice_number, total, customer_id, organization_id, status')
       .eq('organization_id', orgId)
       .ilike('invoice_number', targetInvoiceNum)
       .maybeSingle();
@@ -960,7 +1034,7 @@ export async function processWhatsAppPaymentMessage(message: string) {
     // Attempt fuzzy search for unpaid invoices
     const { data: unpaidInvoices } = await client
       .from('invoices')
-      .select('id, invoice_number, total_amount, customer_id, organization_id, status')
+      .select('id, invoice_number, total, customer_id, organization_id, status')
       .eq('organization_id', orgId)
       .neq('status', 'paid')
       .neq('status', 'cancelled')
@@ -982,20 +1056,20 @@ export async function processWhatsAppPaymentMessage(message: string) {
   // Fetch Customer
   const { data: customer } = await client
     .from('customers')
-    .select('id, name, company_name')
+    .select('id, name, business_name')
     .eq('id', targetInvoice.customer_id)
     .single();
 
-  const customerName = customer?.company_name || customer?.name || 'Customer';
+  const customerName = customer?.business_name || customer?.name || 'Customer';
 
   // Execute Payment via Deterministic Service
   try {
     const recorded = await recordNewPayment({
       customerId: targetInvoice.customer_id,
       invoiceId: targetInvoice.id,
-      amount: extractedAmount > 0 ? extractedAmount : Number(targetInvoice.total_amount),
-      paymentDate: new Date().toISOString().split('T')[0],
-      paymentMethod: method,
+      amount: extractedAmount > 0 ? extractedAmount : Number(targetInvoice.total),
+      paidAt: new Date().toISOString().split('T')[0],
+      method: method,
       notes: `Recorded via ${APP_NAME} AI WhatsApp Assistant: "${message}"`,
     });
 
@@ -1073,36 +1147,46 @@ export async function createOrganizationAndOwner(params: {
     console.info('Database RPC unavailable, falling back to atomic server API:', rpcErr);
   }
 
-  // 2. Call the server route which verifies auth.uid(), checks existing memberships,
-  // creates the organization and owner membership atomically, and syncs user_profiles.
-  const res = await fetch('/api/onboarding/create-organization', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name: params.name.trim(),
-      legalName: params.legalName?.trim() || params.name.trim(),
-      phone: params.phone?.trim() || undefined,
-      email: params.email?.trim() || undefined,
-      addressLine1: params.addressLine1?.trim() || undefined,
-      addressLine2: params.addressLine2?.trim() || undefined,
-      city: params.city?.trim() || undefined,
-      state: params.state?.trim() || undefined,
-      stateCode: params.stateCode?.trim() || undefined,
-      pincode: params.pincode?.trim() || undefined,
-      country: params.country?.trim() || 'India',
-      gstin: params.gstin?.trim().toUpperCase() || undefined,
-      displayName: params.displayName?.trim() || undefined,
-    }),
-  });
+  // 2. Call the server route with Authorization Bearer header so session is guaranteed even on Safari/Vercel
+  const { data: sessionData } = await client.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
 
-  const responseData = await res.json().catch(() => null);
+  let serverApiError: string | null = null;
+  try {
+    const res = await fetch('/api/onboarding/create-organization', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({
+        name: params.name.trim(),
+        legalName: params.legalName?.trim() || params.name.trim(),
+        phone: params.phone?.trim() || undefined,
+        email: params.email?.trim() || undefined,
+        addressLine1: params.addressLine1?.trim() || undefined,
+        addressLine2: params.addressLine2?.trim() || undefined,
+        city: params.city?.trim() || undefined,
+        state: params.state?.trim() || undefined,
+        stateCode: params.stateCode?.trim() || undefined,
+        pincode: params.pincode?.trim() || undefined,
+        country: params.country?.trim() || 'India',
+        gstin: params.gstin?.trim().toUpperCase() || undefined,
+        displayName: params.displayName?.trim() || undefined,
+      }),
+    });
 
-  if (!res.ok || !responseData?.success) {
-    throw new Error(responseData?.error || 'Something went wrong while creating your workspace. Please try again.');
+    const responseData = await res.json().catch(() => null);
+
+    if (res.ok && responseData?.success && responseData?.organizationId) {
+      return { id: responseData.organizationId };
+    }
+
+    serverApiError = responseData?.error || `Server responded with status ${res.status}`;
+  } catch (fetchErr: any) {
+    serverApiError = fetchErr?.message || 'Network request failed';
   }
 
-  return { id: responseData.organizationId };
+  throw new Error(serverApiError || 'Failed to create workspace. Please check your network and try again.');
 }
 

@@ -90,9 +90,9 @@ export function InvoiceDetailModal({
                 Billed Party (Customer)
               </span>
               <p className="text-sm font-bold text-slate-900">
-                {customer?.company_name || customer?.name || 'Customer'}
+                {customer?.business_name || customer?.name || 'Customer'}
               </p>
-              {customer?.company_name && customer.name && (
+              {customer?.business_name && customer.name && (
                 <p className="text-xs text-slate-600 font-medium">{customer.name}</p>
               )}
               {customer?.phone && (
@@ -114,7 +114,7 @@ export function InvoiceDetailModal({
               </span>
               <div className="flex justify-between text-slate-600">
                 <span>Issue Date:</span>
-                <span className="font-semibold text-slate-900">{formatDate(invoice.invoice_date)}</span>
+                <span className="font-semibold text-slate-900">{formatDate(invoice.issue_date)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Due Date:</span>
@@ -124,7 +124,7 @@ export function InvoiceDetailModal({
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Payment Terms:</span>
-                <span className="font-medium text-slate-700">{customer?.payment_terms_days || 30} Days Credit</span>
+                <span className="font-medium text-slate-700">{customer?.credit_days || 30} Days Credit</span>
               </div>
             </div>
           </div>
@@ -136,11 +136,11 @@ export function InvoiceDetailModal({
             </div>
             <div className="flex justify-between text-xs text-slate-600">
               <span>GST Total (CGST + SGST / IGST):</span>
-              <span className="font-mono font-medium">{formatINR(invoice.tax_total)}</span>
+              <span className="font-mono font-medium">{formatINR(invoice.cgst + invoice.sgst + invoice.igst + invoice.cess)}</span>
             </div>
             <div className="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-100">
               <span>Total Invoice Amount:</span>
-              <span className="font-mono">{formatINR(invoice.total_amount)}</span>
+              <span className="font-mono">{formatINR(invoice.total)}</span>
             </div>
             <div className="flex justify-between text-xs text-emerald-700 font-semibold pt-1">
               <span>Amount Paid / Settled:</span>
@@ -173,7 +173,7 @@ export function InvoiceDetailModal({
             ) : (
               <div className="space-y-2">
                 {history.payments.map((p) => {
-                  const methodConf = getPaymentMethodConfig(p.payment_method);
+                  const methodConf = getPaymentMethodConfig(p.method);
                   return (
                     <div
                       key={p.id}
@@ -186,12 +186,12 @@ export function InvoiceDetailModal({
                             {methodConf.label}
                           </span>
                         </div>
-                        {p.notes && <p className="text-[11px] text-slate-500 mt-0.5">{p.notes}</p>}
+                        {p.metadata?.notes && <p className="text-[11px] text-slate-500 mt-0.5">{p.metadata.notes}</p>}
                       </div>
                       <div className="text-right text-[11px] text-slate-500 font-sans">
-                        <span>{formatDate(p.payment_date, 'medium')}</span>
-                        {p.reference_number && (
-                          <span className="block text-[10px] text-slate-400 font-mono">Ref: {p.reference_number}</span>
+                        <span>{formatDate(p.paid_at, 'medium')}</span>
+                        {p.reference && (
+                          <span className="block text-[10px] text-slate-400 font-mono">Ref: {p.reference}</span>
                         )}
                       </div>
                     </div>

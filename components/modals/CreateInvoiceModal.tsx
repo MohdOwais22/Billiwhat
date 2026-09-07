@@ -52,6 +52,7 @@ export function CreateInvoiceModal({
       await createNewInvoice({
         customerId,
         invoiceNumber: invoiceNumber.trim() || undefined,
+        issueDate: invoiceDate,
         invoiceDate,
         dueDate,
         subtotal,
@@ -126,7 +127,7 @@ export function CreateInvoiceModal({
               >
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.company_name ? `${c.company_name}` : c.name}
+                    {c.business_name ? `${c.business_name}` : c.name}
                   </option>
                 ))}
               </select>

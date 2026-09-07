@@ -66,7 +66,7 @@ export function RecentInvoices({
             ) : (
               invoices.map((inv) => {
                 const statusConfig = getInvoiceStatusConfig(inv.status);
-                const customerName = inv.customer?.company_name || inv.customer?.name || 'Customer';
+                const customerName = inv.customer?.business_name || inv.customer?.name || 'Customer';
 
                 return (
                   <tr
@@ -82,17 +82,17 @@ export function RecentInvoices({
                       <div className="font-semibold text-slate-900 truncate max-w-[160px]">
                         {customerName}
                       </div>
-                      {inv.customer?.company_name && inv.customer.name && (
+                      {inv.customer?.business_name && inv.customer.name && (
                         <div className="text-[10px] text-slate-400 truncate">
                           {inv.customer.name}
                         </div>
                       )}
                     </td>
                     <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
-                      {formatDate(inv.invoice_date, 'short')}
+                      {formatDate(inv.issue_date, 'short')}
                     </td>
                     <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                      {formatINR(inv.total_amount)}
+                      {formatINR(inv.total)}
                     </td>
                     <td className="py-3 px-3 text-right font-mono font-semibold">
                       {inv.balance_due > 0 ? (

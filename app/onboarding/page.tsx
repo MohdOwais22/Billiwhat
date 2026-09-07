@@ -229,7 +229,8 @@ function OnboardingContent() {
       router.refresh();
     } catch (err: any) {
       console.error('Organization Creation Error:', err);
-      setErrorMsg('Something went wrong while creating your workspace. Please try again.');
+      const message = err?.message || 'Something went wrong while creating your workspace. Please try again.';
+      setErrorMsg(message);
     } finally {
       setIsLoading(false);
     }

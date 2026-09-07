@@ -75,9 +75,9 @@ export function RecentPayments({
               </tr>
             ) : (
               payments.map((p) => {
-                const methodConfig = getPaymentMethodConfig(p.payment_method);
+                const methodConfig = getPaymentMethodConfig(p.method);
                 const statusConfig = getPaymentStatusConfig(p.status);
-                const customerName = p.customer?.company_name || p.customer?.name || 'Customer';
+                const customerName = p.customer?.business_name || p.customer?.name || 'Customer';
 
                 return (
                   <tr key={p.id} id={`payment-row-${p.id}`} className="hover:bg-slate-50/80 transition">
@@ -92,7 +92,7 @@ export function RecentPayments({
                       )}
                     </td>
                     <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
-                      {formatDate(p.payment_date, 'short')}
+                      {formatDate(p.paid_at, 'short')}
                     </td>
                     <td className="py-3 px-3">
                       <span
@@ -102,7 +102,7 @@ export function RecentPayments({
                       </span>
                     </td>
                     <td className="py-3 px-3 font-mono text-[11px] text-slate-600 truncate max-w-[150px]">
-                      {p.reference_number || '—'}
+                      {p.reference || '—'}
                     </td>
                     <td className="py-3 px-3 text-right font-mono font-extrabold text-emerald-700">
                       +{formatINR(p.amount)}

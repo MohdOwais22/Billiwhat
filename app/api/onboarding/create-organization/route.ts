@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@supabase/ssr';
+import { getSupabaseEnv } from '@/lib/supabase/config';
 
 const STATE_TO_CODE: Record<string, string> = {
   'Jammu and Kashmir': '01',
@@ -31,17 +33,48 @@ const STATE_TO_CODE: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const { url: supabaseUrl, anonKey: supabaseAnonKey, serviceRoleKey } = getSupabaseEnv();
 
-    if (authError || !authData?.user) {
+    // 1. Authenticate user: Check Authorization Bearer header first, then cookie-based session
+    let user: any = null;
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      if (token && supabaseUrl && supabaseAnonKey) {
+        try {
+          const tokenClient = createServerClient(supabaseUrl, supabaseAnonKey, {
+            cookies: {
+              getAll: () => [],
+              setAll: () => {},
+            },
+          });
+          const { data: tokenAuth } = await tokenClient.auth.getUser(token);
+          if (tokenAuth?.user) {
+            user = tokenAuth.user;
+          }
+        } catch (tokenErr) {
+          console.warn('Bearer token validation failed:', tokenErr);
+        }
+      }
+    }
+
+    // If no user from header, check cookie session
+    if (!user) {
+      const supabase = await createClient();
+      const { data: cookieAuth } = await supabase.auth.getUser();
+      if (cookieAuth?.user) {
+        user = cookieAuth.user;
+      }
+    }
+
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in before creating a workspace.' },
         { status: 401 }
       );
     }
 
-    const user = authData.user;
     const body = await req.json();
     const {
       name,
@@ -73,8 +106,8 @@ export async function POST(req: NextRequest) {
     const trimmedName = name.trim();
     const trimmedLegalName = legalName?.trim() || trimmedName;
     const cleanGstin = gstin?.trim().toUpperCase() || null;
-    const cleanPhone = phone?.trim() || null;
-    const cleanEmail = email?.trim() || null;
+    const cleanPhone = phone?.trim() || user.phone || null;
+    const cleanEmail = email?.trim() || user.email || null;
     
     // Existing production schema address fields:
     const cleanAddressLine1 = (addressLine1 || address_line1 || address)?.trim() || null;
@@ -95,8 +128,21 @@ export async function POST(req: NextRequest) {
 
     const cleanDisplayName = displayName?.trim() || null;
 
+    // Use admin client with service role key if available, otherwise cookie-based client
+    let dbClient: any = null;
+    if (serviceRoleKey && supabaseUrl) {
+      dbClient = createServerClient(supabaseUrl, serviceRoleKey, {
+        cookies: {
+          getAll: () => [],
+          setAll: () => {},
+        },
+      });
+    } else {
+      dbClient = await createClient();
+    }
+
     // 1. Prevent duplicate organization creation for the same user
-    const { data: existingMember } = await supabase
+    const { data: existingMember } = await dbClient
       .from('organization_members')
       .select('organization_id')
       .eq('user_id', user.id)
@@ -104,7 +150,6 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existingMember?.organization_id) {
-      // User already has an organization
       return NextResponse.json({
         success: true,
         organizationId: existingMember.organization_id,
@@ -114,7 +159,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Try atomic database RPC first if deployed in Supabase
     try {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+      const { data: rpcResult, error: rpcError } = await dbClient.rpc(
         'create_organization_for_current_user',
         {
           p_name: trimmedName,
@@ -145,10 +190,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Fallback: Server-side execution
-    // If display name provided, update user_profiles table (references auth.users.id)
     if (cleanDisplayName) {
       try {
-        await supabase
+        await dbClient
           .from('user_profiles')
           .update({
             display_name: cleanDisplayName,
@@ -161,63 +205,68 @@ export async function POST(req: NextRequest) {
     }
 
     // Create organization using existing production columns
+    const newOrgId = crypto.randomUUID();
     const payload: Record<string, any> = {
+      id: newOrgId,
       name: trimmedName,
       legal_name: trimmedLegalName,
-      phone: cleanPhone,
-      email: cleanEmail,
-      address_line1: cleanAddressLine1,
-      address_line2: cleanAddressLine2,
-      city: cleanCity,
-      state: cleanState,
-      state_code: derivedStateCode,
-      pincode: cleanPincode,
-      country: cleanCountry,
+      country: cleanCountry || 'India',
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      invoice_prefix: 'INV',
+      invoice_sequence: 1,
     };
+    if (cleanGstin) payload.gstin = cleanGstin;
+    if (cleanPhone) payload.phone = cleanPhone;
+    if (cleanEmail) payload.email = cleanEmail;
+    if (cleanAddressLine1) payload.address_line1 = cleanAddressLine1;
+    if (cleanAddressLine2) payload.address_line2 = cleanAddressLine2;
+    if (cleanCity) payload.city = cleanCity;
+    if (cleanState) payload.state = cleanState;
+    if (derivedStateCode) payload.state_code = derivedStateCode;
+    if (cleanPincode) payload.pincode = cleanPincode;
 
-    const { data: createdOrg, error: orgError } = await supabase
+    const { error: orgError } = await dbClient
       .from('organizations')
-      .insert(payload)
-      .select()
-      .single();
+      .insert(payload);
 
-    if (orgError || !createdOrg) {
+    if (orgError) {
       console.error('Failed to insert organization:', orgError);
       return NextResponse.json(
-        { error: 'Something went wrong while creating your workspace. Please try again.' },
+        { error: orgError.message || 'Failed to create workspace in database.' },
         { status: 500 }
       );
     }
 
     // Insert organization membership (role: 'owner') linked to auth.users.id
-    const { error: memberError } = await supabase
+    const { error: memberError } = await dbClient
       .from('organization_members')
       .insert({
-        organization_id: createdOrg.id,
+        organization_id: newOrgId,
         user_id: user.id,
         role: 'owner',
       });
 
     if (memberError) {
       console.error('Failed to insert owner membership, rolling back organization:', memberError);
-      // Clean up orphaned organization to avoid partial state
-      await supabase.from('organizations').delete().eq('id', createdOrg.id);
+      await dbClient.from('organizations').delete().eq('id', newOrgId);
       return NextResponse.json(
-        { error: 'Something went wrong while creating your workspace. Please try again.' },
+        { error: memberError.message || 'Failed to assign workspace ownership.' },
         { status: 500 }
       );
     }
 
-    // Insert GST profile if provided
+    // Insert GST profile if provided (strictly respecting gst_profiles schema)
     if (cleanGstin) {
       try {
-        await supabase.from('gst_profiles').insert({
-          organization_id: createdOrg.id,
+        await dbClient.from('gst_profiles').insert({
+          organization_id: newOrgId,
           gstin: cleanGstin,
           trade_name: trimmedName,
           legal_name: trimmedLegalName,
           state_code: derivedStateCode || '27',
-          is_active: true,
+          e_invoice_enabled: false,
+          e_way_bill_enabled: false,
         });
       } catch (gstErr) {
         console.warn('Could not insert gst_profile:', gstErr);
@@ -226,13 +275,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      organizationId: createdOrg.id,
+      organizationId: newOrgId,
       alreadyExisted: false,
     });
   } catch (err: any) {
     console.error('Organization creation API error:', err);
     return NextResponse.json(
-      { error: 'Something went wrong while creating your workspace. Please try again.' },
+      { error: err?.message || 'Something went wrong while creating your workspace.' },
       { status: 500 }
     );
   }

@@ -38,12 +38,16 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
       await addNewProduct({
         name,
         sku: sku || name.slice(0, 4).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900),
+        hsnSac: hsn,
         hsnCode: hsn,
         unit,
         stockQuantity: Number(stockQuantity),
+        lowStockThreshold: Number(minStockAlert),
         reorderLevel: Number(minStockAlert),
         unitPrice: Number(unitPrice),
+        sellingPrice: Number(unitPrice),
         gstRate: Number(taxRate),
+        taxRate: Number(taxRate),
       });
 
       onSuccess();

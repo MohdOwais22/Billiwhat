@@ -139,7 +139,7 @@ export function QuickInsights({
                 <span className="font-bold font-mono text-rose-950">
                   {item.stock_quantity} {item.unit || 'units'}
                 </span>
-                <span className="text-[10px] text-rose-600">(min {item.min_stock_alert})</span>
+                <span className="text-[10px] text-rose-600">(min {item.low_stock_threshold})</span>
               </span>
             ))}
           </div>

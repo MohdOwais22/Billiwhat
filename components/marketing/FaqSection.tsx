@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { ChevronDown, HelpCircle, Search } from 'lucide-react';
 import { APP_NAME } from '@/config/brand';

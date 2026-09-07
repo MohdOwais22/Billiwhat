@@ -6,8 +6,8 @@ export async function middleware(request: NextRequest) {
     request,
   });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return supabaseResponse;
@@ -49,9 +49,8 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated user away from /login
   if (pathname === '/login' && user) {
-    const url = request.nextUrl.clone();
     const nextParam = request.nextUrl.searchParams.get('next') || request.nextUrl.searchParams.get('redirectTo') || '/dashboard';
-    const destination = nextParam.startsWith('/') ? nextParam : '/dashboard';
+    const destination = (nextParam.startsWith('/') && !nextParam.startsWith('//') && !nextParam.includes('\\')) ? nextParam : '/dashboard';
     return NextResponse.redirect(new URL(destination, request.url));
   }
 

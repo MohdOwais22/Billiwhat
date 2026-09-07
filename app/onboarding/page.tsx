@@ -33,7 +33,7 @@ function OnboardingContent() {
     async function checkAuthAndExistingOrg() {
       if (!isSupabaseConfigured) {
         setIsCheckingAuth(false);
-        setErrorMsg('Supabase is not configured. Please add SUPABASE_URL and SUPABASE_ANON_KEY to environment variables.');
+        setErrorMsg('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to environment variables.');
         return;
       }
 

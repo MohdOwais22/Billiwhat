@@ -18,7 +18,7 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(
     !isSupabaseConfigured
-      ? 'Supabase Authentication is not configured. Please add SUPABASE_URL and SUPABASE_ANON_KEY to your environment variables.'
+      ? 'Supabase Authentication is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment variables.'
       : null
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);

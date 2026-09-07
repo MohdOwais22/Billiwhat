@@ -52,88 +52,113 @@ export async function POST(req: NextRequest) {
       password: demoPassword,
     });
 
-    // If account does not exist and service role key is available, bootstrap the demo user and organization
+    // If sign-in failed and service role key is available, bootstrap or repair the demo user and organization
     if (signInResult.error && serviceRoleKey) {
-      const adminClient = createServerClient(supabaseUrl, serviceRoleKey, {
-        cookies: {
-          getAll() {
-            return [];
+      try {
+        const adminClient = createServerClient(supabaseUrl, serviceRoleKey, {
+          cookies: {
+            getAll() {
+              return [];
+            },
+            setAll() {},
           },
-          setAll() {},
-        },
-      });
+        });
 
-      // Try creating user if missing
-      const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-        email: demoEmail,
-        password: demoPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: 'Demo Proprietor',
-          is_demo: true,
-        },
-      });
+        let targetUserId: string | null = null;
 
-      // If user creation succeeded or if user already existed (e.g. password was reset)
-      const targetUserId = newUser?.user?.id;
+        // Try creating user
+        const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+          email: demoEmail,
+          password: demoPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: 'Demo Proprietor',
+            is_demo: true,
+          },
+        });
 
-      if (targetUserId) {
-        // Ensure Demo Organization exists
-        let { data: org } = await adminClient
-          .from('organizations')
-          .select('id')
-          .eq('name', 'Demo Wholesale Traders')
-          .maybeSingle();
+        if (newUser?.user?.id) {
+          targetUserId = newUser.user.id;
+        } else if (createError?.message?.toLowerCase().includes('already') || createError?.status === 422) {
+          // User already exists in Supabase Auth, let's locate their user ID and sync password
+          const { data: userList } = await adminClient.auth.admin.listUsers({ perPage: 100 });
+          const users = userList?.users || [];
+          const matchedUser = users.find(
+            (u: any) => u.email?.toLowerCase() === demoEmail.toLowerCase()
+          );
 
-        if (!org) {
-          const { data: newOrg } = await adminClient
-            .from('organizations')
-            .insert({
-              name: 'Demo Wholesale Traders',
-              legal_name: 'Demo Wholesale Traders LLP',
-              phone: '+919876543210',
-              email: demoEmail,
-              city: 'Mumbai',
-              state: 'Maharashtra',
-              pincode: '400001',
-            })
-            .select('id')
-            .single();
-          org = newOrg;
-        }
-
-        if (org?.id) {
-          // Ensure membership exists
-          const { data: existingMember } = await adminClient
-            .from('organization_members')
-            .select('id')
-            .eq('organization_id', org.id)
-            .eq('user_id', targetUserId)
-            .maybeSingle();
-
-          if (!existingMember) {
-            await adminClient.from('organization_members').insert({
-              organization_id: org.id,
-              user_id: targetUserId,
-              role: 'owner',
+          if (matchedUser) {
+            targetUserId = matchedUser.id;
+            // Reset password to match configured demo password and confirm email
+            await adminClient.auth.admin.updateUserById(matchedUser.id, {
+              password: demoPassword,
+              email_confirm: true,
             });
           }
         }
-      }
 
-      // Retry sign-in with the configured password
-      signInResult = await supabase.auth.signInWithPassword({
-        email: demoEmail,
-        password: demoPassword,
-      });
+        if (targetUserId) {
+          // Ensure Demo Organization exists in public schema
+          let { data: org } = await adminClient
+            .from('organizations')
+            .select('id')
+            .eq('name', 'Demo Wholesale Traders')
+            .maybeSingle();
+
+          if (!org) {
+            const { data: newOrg } = await adminClient
+              .from('organizations')
+              .insert({
+                name: 'Demo Wholesale Traders',
+                legal_name: 'Demo Wholesale Traders LLP',
+                phone: '+919876543210',
+                email: demoEmail,
+                city: 'Mumbai',
+                state: 'Maharashtra',
+                pincode: '400001',
+              })
+              .select('id')
+              .single();
+            org = newOrg;
+          }
+
+          if (org?.id) {
+            // Ensure membership exists
+            const { data: existingMember } = await adminClient
+              .from('organization_members')
+              .select('id')
+              .eq('organization_id', org.id)
+              .eq('user_id', targetUserId)
+              .maybeSingle();
+
+            if (!existingMember) {
+              await adminClient.from('organization_members').insert({
+                organization_id: org.id,
+                user_id: targetUserId,
+                role: 'owner',
+              });
+            }
+          }
+        }
+
+        // Retry sign-in with the configured password
+        signInResult = await supabase.auth.signInWithPassword({
+          email: demoEmail,
+          password: demoPassword,
+        });
+      } catch (adminErr: any) {
+        console.warn('Auto-provisioning with service role encountered error:', adminErr);
+      }
     }
 
     if (signInResult.error) {
       console.warn('Demo login failed:', signInResult.error.message);
+      const isMissingServiceKey = !serviceRoleKey;
       return NextResponse.json(
         {
-          error:
-            'Demo account is not yet provisioned in this Supabase database. Please check DEMO_LOGIN_EMAIL / DEMO_LOGIN_PASSWORD or provision the demo user in Supabase.',
+          error: isMissingServiceKey
+            ? 'Demo account is not yet created. Add SUPABASE_SERVICE_ROLE_KEY to your Vercel environment variables (or create demo@whatsbill.internal with password WhatsBillDemo2026! in Supabase Auth).'
+            : `Demo sign-in failed: ${signInResult.error.message}. Please verify the user in Supabase Auth > Users.`,
           details: signInResult.error.message,
         },
         { status: 401 }

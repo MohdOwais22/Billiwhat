@@ -48,8 +48,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   } = useDashboard();
 
   return (
-    <div className="flex h-full min-h-screen bg-slate-50 font-sans antialiased text-slate-900" id="whatsbill-app-root">
-      {/* Sidebar Navigation - Remains mounted across internal route transitions */}
+    <div className="flex h-screen h-[100dvh] overflow-hidden bg-slate-50 font-sans antialiased text-slate-900" id="whatsbill-app-root">
+      {/* Sidebar Navigation - Desktop is fixed on left, Mobile is sliding drawer */}
       <Sidebar
         currentRoute={currentRoute}
         onNavigate={(route) => handleNavigate(route)}
@@ -59,8 +59,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* Main Content Shell Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-slate-50 min-h-screen">
+      {/* Main Content Shell Area - Takes remaining width and scrolls independently */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-slate-50">
         <DashboardHeader
           organization={organization}
           gstProfile={gstProfile}
@@ -70,10 +70,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           userEmail={userEmail}
         />
 
-        {/* Tab Route Content */}
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* Tab Route Content - Independent scroll container */}
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-slate-50" id="main-content-scrollable">
           {children}
-        </div>
+        </main>
       </div>
 
       {/* Global Modals */}

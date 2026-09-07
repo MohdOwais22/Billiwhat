@@ -427,7 +427,7 @@ export async function POST(req: NextRequest) {
       // Check if user already exists in auth
       const { data: existingUser } = await adminSupabase.auth.admin.listUsers();
       const matchedUser = existingUser?.users?.find(
-        (u) => u.email?.toLowerCase() === email.trim().toLowerCase()
+        (u: any) => u.email?.toLowerCase() === email.trim().toLowerCase()
       );
 
       if (matchedUser) {

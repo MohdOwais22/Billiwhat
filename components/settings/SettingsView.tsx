@@ -180,15 +180,15 @@ export function SettingsView({ onBackToDashboard, initialTab = 'business' }: Set
 
       {/* Loading Skeleton State */}
       {isLoading && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-pulse" id="settings-loading-skeleton">
-          <div className="lg:col-span-1 space-y-2">
+        <div className="flex flex-col lg:flex-row gap-6 items-start animate-pulse" id="settings-loading-skeleton">
+          <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-2">
             {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <div key={i} className="h-12 bg-slate-200 rounded-xl" />
+              <div key={i} className="h-14 bg-slate-200 rounded-xl" />
             ))}
           </div>
-          <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-8 space-y-6">
+          <div className="flex-1 min-w-0 w-full bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6">
             <div className="h-6 w-48 bg-slate-200 rounded" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="h-10 bg-slate-100 rounded-lg" />
               <div className="h-10 bg-slate-100 rounded-lg" />
               <div className="h-10 bg-slate-100 rounded-lg" />
@@ -215,11 +215,11 @@ export function SettingsView({ onBackToDashboard, initialTab = 'business' }: Set
         </div>
       )}
 
-      {/* Main Settings Grid */}
+      {/* Main Settings Layout */}
       {!isLoading && data && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* Left Navigation Menu */}
-          <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs space-y-1" id="settings-nav-menu">
+          <div className="w-full lg:w-72 xl:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs space-y-1" id="settings-nav-menu">
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Settings Sections
             </div>
@@ -245,10 +245,10 @@ export function SettingsView({ onBackToDashboard, initialTab = 'business' }: Set
                   >
                     <Icon className="w-4 h-4" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold leading-tight">{tab.label}</p>
                     <p
-                      className={`text-[10px] mt-0.5 truncate ${
+                      className={`text-[11px] mt-0.5 leading-snug line-clamp-2 ${
                         isActive ? 'text-slate-300' : 'text-slate-400'
                       }`}
                     >
@@ -261,7 +261,7 @@ export function SettingsView({ onBackToDashboard, initialTab = 'business' }: Set
           </div>
 
           {/* Right Content Area */}
-          <div className="lg:col-span-3 min-w-0" id="settings-content-area">
+          <div className="flex-1 min-w-0 w-full" id="settings-content-area">
             {activeTab === 'business' && (
               <BusinessSection
                 organization={data.organization}

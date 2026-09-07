@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,7 +15,6 @@ import {
   Settings,
   Building2,
   ChevronRight,
-  ShieldCheck,
   X,
   LogOut,
 } from 'lucide-react';
@@ -55,13 +54,13 @@ interface NavItemDef {
 
 const PRIMARY_NAV: NavItemDef[] = [
   { href: '/dashboard', route: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard', route: 'sales', label: 'Invoices & Sales', icon: ReceiptText },
-  { href: '/dashboard', route: 'customers', label: 'Customers', icon: Users },
-  { href: '/dashboard', route: 'inventory', label: 'Products & Inventory', icon: Package },
-  { href: '/dashboard', route: 'receivables', label: 'Receivables', icon: ClockAlert, badge: 'WhatsApp' },
-  { href: '/dashboard', route: 'payments', label: 'Payments', icon: CreditCard },
-  { href: '/dashboard', route: 'reports', label: 'Reports & GST', icon: BarChart3 },
-  { href: '/dashboard', route: 'settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/sales', route: 'sales', label: 'Invoices & Sales', icon: ReceiptText },
+  { href: '/dashboard/customers', route: 'customers', label: 'Customers', icon: Users },
+  { href: '/dashboard/inventory', route: 'inventory', label: 'Products & Stock', icon: Package },
+  { href: '/dashboard/receivables', route: 'receivables', label: 'Receivables', icon: ClockAlert, badge: 'WhatsApp' },
+  { href: '/dashboard/payments', route: 'payments', label: 'Payments', icon: CreditCard },
+  { href: '/dashboard/reports', route: 'reports', label: 'Reports & GST', icon: BarChart3 },
+  { href: '/dashboard/settings', route: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export function Sidebar({
@@ -75,6 +74,17 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
 
+  // Close mobile sidebar on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileOpen && onCloseMobile) {
+        onCloseMobile();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileOpen, onCloseMobile]);
+
   const handleSignOut = async () => {
     const client = createClient();
     await client.auth.signOut();
@@ -82,29 +92,37 @@ export function Sidebar({
     router.refresh();
   };
 
-  const content = (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-200 border-r border-slate-800 select-none">
+  const renderSidebarContent = (isMobileView = false) => (
+    <div className="flex flex-col h-full w-full bg-slate-900 text-slate-200 select-none overflow-hidden">
       {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-sm shadow-emerald-900/40">
+      <div className="p-4 border-b border-slate-800/90 flex items-center justify-between shrink-0">
+        <Link
+          href="/dashboard"
+          onClick={() => {
+            if (onNavigate) onNavigate('dashboard');
+            if (isMobileView && onCloseMobile) onCloseMobile();
+          }}
+          className="flex items-center gap-3 group"
+          id="sidebar-brand-link"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-emerald-950/50 group-hover:bg-emerald-500 transition">
             {getBrandInitials()[0]}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-white text-base tracking-tight">{APP_NAME}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <span className="font-black text-white text-base tracking-tight">{APP_NAME}</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 PRO
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">Bill • Collect • Reconcile</p>
+            <p className="text-[11px] text-slate-400 font-medium leading-none mt-0.5">Bill • Collect • Reconcile</p>
           </div>
         </Link>
 
-        {onCloseMobile && (
+        {isMobileView && onCloseMobile && (
           <button
             onClick={onCloseMobile}
-            className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
             aria-label="Close menu"
             id="sidebar-close-mobile-btn"
           >
@@ -114,37 +132,46 @@ export function Sidebar({
       </div>
 
       {/* Organization Info Card */}
-      <div className="px-3 py-3 border-b border-slate-800/80">
-        <div
-          className="p-2.5 rounded-lg bg-slate-800/70 border border-slate-700/60 flex items-center justify-between hover:bg-slate-800 transition group cursor-pointer"
+      <div className="px-3 py-3 border-b border-slate-800/80 shrink-0">
+        <button
+          onClick={() => {
+            if (onNavigate) onNavigate('settings');
+            if (isMobileView && onCloseMobile) onCloseMobile();
+          }}
+          type="button"
+          className="w-full text-left p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/60 flex items-center justify-between hover:bg-slate-800 transition group cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
           id="sidebar-org-card"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded bg-slate-700 flex items-center justify-center text-slate-300 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-slate-300 shrink-0 group-hover:text-emerald-400 transition">
               <Building2 className="w-4 h-4" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               {organization?.name ? (
-                <p className="text-xs font-semibold text-white truncate group-hover:text-emerald-400 transition">
+                <p className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition">
                   {organization.name}
                 </p>
               ) : isLoading ? (
-                <div className="h-3.5 w-28 bg-slate-700/80 rounded animate-pulse my-0.5" id="sidebar-org-skeleton" />
-              ) : null}
+                <div className="h-3.5 w-24 bg-slate-700/80 rounded animate-pulse my-0.5" id="sidebar-org-skeleton" />
+              ) : (
+                <p className="text-xs font-bold text-slate-200 truncate">
+                  My Business
+                </p>
+              )}
 
-              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                {organization?.gstin ? `GST: ${organization.gstin}` : 'Business Account'}
+              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                <span className="truncate">{organization?.gstin ? `GST: ${organization.gstin}` : 'Active Account'}</span>
               </p>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
-        </div>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 shrink-0 ml-1" />
+        </button>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      {/* Navigation Links Scrollable Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 space-y-1" id="sidebar-nav-scroll">
+        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Core Operations
         </div>
 
@@ -159,33 +186,27 @@ export function Sidebar({
                 if (onNavigate) {
                   onNavigate(item.route);
                 }
-                if (onCloseMobile) onCloseMobile();
+                if (isMobileView && onCloseMobile) onCloseMobile();
               }}
               id={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-              className={`relative w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition-colors duration-150 group text-left cursor-pointer active:scale-[0.98] ${
-                isActive ? 'text-white font-semibold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60 font-medium'
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition duration-150 text-left cursor-pointer active:scale-[0.98] ${
+                isActive
+                  ? 'bg-emerald-600 text-white font-bold shadow-sm shadow-emerald-950/40'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70 font-medium'
               }`}
             >
-              {isActive && (
-                <motion.div
-                  layoutId="activeSidebarNav"
-                  className="absolute inset-0 bg-emerald-600 rounded-lg shadow-sm shadow-emerald-950/50"
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                />
-              )}
-
-              <div className="relative z-10 flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <Icon
                   className={`w-4 h-4 shrink-0 transition-colors duration-150 ${
                     isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
                   }`}
                 />
-                <span>{item.label}</span>
+                <span className="truncate">{item.label}</span>
               </div>
 
               {item.badge && (
                 <span
-                  className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-150 ${
+                  className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-bold tracking-tight transition-colors duration-150 ml-1.5 ${
                     isActive
                       ? 'bg-white/20 text-white'
                       : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
@@ -199,11 +220,11 @@ export function Sidebar({
         })}
       </div>
 
-      {/* Footer Status */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/40 text-[11px] text-slate-400 space-y-2">
+      {/* Footer Status & Sign Out */}
+      <div className="p-3 border-t border-slate-800/90 bg-slate-950/50 shrink-0 space-y-2">
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 px-2.5 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-md transition font-medium cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition font-semibold cursor-pointer"
           id="sidebar-signout-btn"
         >
           <LogOut className="w-3.5 h-3.5" />
@@ -215,10 +236,12 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="hidden lg:block w-64 h-screen shrink-0 sticky top-0" id="desktop-sidebar">
-        {content}
+      {/* Desktop Sidebar: Permanent, Fixed height, Border Right */}
+      <aside className="hidden lg:flex w-64 h-full shrink-0 flex-col border-r border-slate-800 bg-slate-900 z-20" id="desktop-sidebar">
+        {renderSidebarContent(false)}
       </aside>
 
+      {/* Mobile Drawer Backdrop & Sliding Panel */}
       <AnimatePresence>
         {isMobileOpen && (
           <div className="fixed inset-0 z-50 lg:hidden flex" id="mobile-sidebar-backdrop">
@@ -226,18 +249,18 @@ export function Sidebar({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs"
               onClick={onCloseMobile}
             />
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-72 max-w-[80vw] h-full shadow-2xl z-10"
+              transition={{ type: 'spring', damping: 26, stiffness: 280 }}
+              className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10 flex flex-col bg-slate-900 border-r border-slate-800"
             >
-              {content}
+              {renderSidebarContent(true)}
             </motion.div>
           </div>
         )}
@@ -245,3 +268,4 @@ export function Sidebar({
     </>
   );
 }
+

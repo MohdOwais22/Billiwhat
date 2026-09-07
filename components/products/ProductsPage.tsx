@@ -72,20 +72,24 @@ export function ProductsPage() {
     let lowStockCount = 0;
     let outOfStockCount = 0;
     let totalStockUnits = 0;
-    let totalInventoryValuation = 0;
+    let totalStockAtCost = 0;
+    let itemsWithCostCount = 0;
 
     rawProducts.forEach((p) => {
       const stock = Number(p.stock_quantity) || 0;
       const threshold = Number(p.low_stock_threshold) || 10;
-      const price = Number(p.selling_price) || 0;
+      const purchasePrice = Number(p.purchase_price) || 0;
 
       if (p.is_active) activeProducts += 1;
       totalStockUnits += stock;
-      totalInventoryValuation += stock * price;
+
+      if (stock > 0 && purchasePrice > 0) {
+        totalStockAtCost += stock * purchasePrice;
+        itemsWithCostCount += 1;
+      }
 
       if (stock <= 0) {
         outOfStockCount += 1;
-        lowStockCount += 1;
       } else if (stock <= threshold) {
         lowStockCount += 1;
       }
@@ -97,7 +101,8 @@ export function ProductsPage() {
       lowStockCount,
       outOfStockCount,
       totalStockUnits,
-      totalInventoryValuation,
+      totalStockAtCost,
+      itemsWithCostCount,
     };
   }, [rawProducts]);
 

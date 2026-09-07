@@ -97,8 +97,7 @@ export function ProductDetailModal({
   const marginAmt = sellingPrice - purchasePrice;
   const marginPct = purchasePrice > 0 ? ((marginAmt / purchasePrice) * 100).toFixed(1) : null;
 
-  const stockValuationSelling = currentStock * sellingPrice;
-  const stockValuationPurchase = currentStock * purchasePrice;
+  const stockValuationAtCost = purchasePrice > 0 ? currentStock * purchasePrice : null;
 
   return (
     <div
@@ -273,12 +272,12 @@ export function ProductDetailModal({
                 </div>
 
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Stock Valuation</p>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Indicative Stock at Cost</p>
                   <p className="text-base font-bold font-mono text-slate-900 mt-1">
-                    {formatINR(purchasePrice > 0 ? stockValuationPurchase : stockValuationSelling)}
+                    {stockValuationAtCost !== null ? formatINR(stockValuationAtCost) : 'N/A'}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    {purchasePrice > 0 ? 'At cost price' : 'At selling price'}
+                    {purchasePrice > 0 ? 'Based on purchase cost' : 'Purchase cost not configured'}
                   </p>
                 </div>
               </div>

@@ -119,7 +119,7 @@ BEGIN
       v_clean_gstin,
       trim(p_name),
       COALESCE(NULLIF(trim(p_legal_name), ''), trim(p_name)),
-      COALESCE(v_state_code, '27'),
+      v_state_code,
       false,
       false
     )

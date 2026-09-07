@@ -50,8 +50,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const sellPriceNum = parseFloat(sellingPrice);
-    if (!name.trim() || isNaN(sellPriceNum) || sellPriceNum <= 0) {
-      setErrorMsg('Product name and a valid selling price greater than zero are required.');
+    if (!name.trim() || isNaN(sellPriceNum) || sellPriceNum < 0) {
+      setErrorMsg('Product name and a valid non-negative selling price are required.');
       return;
     }
 

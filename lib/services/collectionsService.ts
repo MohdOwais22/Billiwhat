@@ -173,13 +173,16 @@ export function computeCollectionsData(
     const email = cust?.email || null;
     const gstin = cust?.gstin || null;
 
-    const dueDateObj = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
-    dueDateObj.setHours(0, 0, 0, 0);
-    const dueDateStr = inv.due_date || inv.issue_date;
+    let daysOverdue = 0;
+    const dueDateStr = inv.due_date || null;
 
-    const diffTime = today.getTime() - dueDateObj.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    const daysOverdue = diffDays > 0 ? diffDays : 0;
+    if (inv.due_date) {
+      const dueDateObj = new Date(inv.due_date);
+      dueDateObj.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - dueDateObj.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      daysOverdue = diffDays > 0 ? diffDays : 0;
+    }
 
     // Determine ageing bracket
     let bucket: AgeingBucketKey = 'current';

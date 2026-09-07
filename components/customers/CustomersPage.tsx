@@ -114,10 +114,11 @@ export function CustomersPage() {
       custEntry.totalOutstanding += balance;
       custEntry.invoiceCount += 1;
 
-      const dueDate = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
-      dueDate.setHours(0, 0, 0, 0);
+      const isOverdue = Boolean(
+        inv.due_date && new Date(inv.due_date).setHours(0, 0, 0, 0) < today.getTime()
+      );
 
-      if (balance > 0 && (dueDate < today || inv.status === 'overdue' || (inv.days_overdue && inv.days_overdue > 0))) {
+      if (balance > 0 && isOverdue) {
         custEntry.overdueAmount += balance;
         custEntry.hasOverdue = true;
       }

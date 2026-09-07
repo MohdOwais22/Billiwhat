@@ -338,7 +338,7 @@ export async function POST(req: NextRequest) {
             gstin: cleanGstin,
             legal_name: legal_name ? legal_name.trim() : null,
             trade_name: trade_name ? trade_name.trim() : null,
-            state_code: state_code ? state_code.trim() : (cleanGstin ? cleanGstin.substring(0, 2) : '27'),
+            state_code: state_code ? state_code.trim() : (cleanGstin && cleanGstin.length >= 2 ? cleanGstin.substring(0, 2) : null),
             registration_type: registration_type || 'Regular',
             place_of_supply: place_of_supply ? place_of_supply.trim() : null,
             e_invoice_enabled: Boolean(e_invoice_enabled),

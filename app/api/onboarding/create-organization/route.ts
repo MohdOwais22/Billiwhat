@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
           gstin: cleanGstin,
           trade_name: trimmedName,
           legal_name: trimmedLegalName,
-          state_code: derivedStateCode || '27',
+          state_code: derivedStateCode || null,
           e_invoice_enabled: false,
           e_way_bill_enabled: false,
         });

@@ -1,6 +1,7 @@
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import { captureWhatsBillError } from '@/lib/sentry';
 import { APP_NAME } from '@/config/brand';
+import { computeInvoiceSummary, determineGstState, roundPaise } from '@/lib/utils/taxCalculation';
 import {
   CollectionQueueItem,
   Customer,
@@ -282,10 +283,13 @@ function computeDataFromSets(
     const paid = paymentsByInvoice.get(inv.id) || 0;
     const balance = Math.max(0, Number(inv.total) - paid);
 
-    const due = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
-    due.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
-    const daysOverdue = diffDays > 0 ? diffDays : 0;
+    let daysOverdue = 0;
+    if (inv.due_date) {
+      const due = new Date(inv.due_date);
+      due.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+      daysOverdue = diffDays > 0 ? diffDays : 0;
+    }
 
     return {
       ...inv,
@@ -313,7 +317,8 @@ function computeDataFromSets(
   const outstandingInvoicesCount = activeInvoices.filter((inv) => inv.balance_due > 0).length;
 
   const overdueInvoices = activeInvoices.filter((inv) => {
-    const due = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
+    if (!inv.due_date) return false;
+    const due = new Date(inv.due_date);
     due.setHours(0, 0, 0, 0);
     return due < today && inv.balance_due > 0;
   });
@@ -430,7 +435,7 @@ function buildCollectionQueue(
       outstandingAmount: balance,
       totalAmount: Number(inv.total),
       daysOverdue,
-      dueDate: inv.due_date || inv.issue_date,
+      dueDate: inv.due_date || null,
       suggestedAction,
       priority,
       lastPaymentDate: lastPayment ? lastPayment.paid_at : null,
@@ -440,7 +445,7 @@ function buildCollectionQueue(
 }
 
 /**
- * Adds a new customer to Supabase
+ * Adds a new customer to Supabase with organization isolation and duplicate detection
  */
 export async function addNewCustomer(params: {
   name: string;
@@ -457,6 +462,7 @@ export async function addNewCustomer(params: {
   paymentTermsDays?: number;
   notes?: string;
   isActive?: boolean;
+  allowDuplicate?: boolean;
 }) {
   const client = createBrowserClient();
   const { data: authData } = await client.auth.getUser();
@@ -475,18 +481,80 @@ export async function addNewCustomer(params: {
     throw new Error('No organization found for current user session.');
   }
 
+  const orgId = memberData.organization_id;
+
+  const trimmedBusiness = (params.businessName || params.companyName)?.trim() || '';
+  const trimmedName = params.name?.trim() || '';
+  const primaryName = trimmedBusiness || trimmedName;
+  const secondaryName = trimmedName || trimmedBusiness;
+
+  if (!primaryName) {
+    throw new Error('Customer or Business Name is required.');
+  }
+
+  const trimmedPhone = params.phone?.trim() || '';
+  if (!trimmedPhone) {
+    throw new Error('Primary Phone number is required.');
+  }
+
+  const cleanPhone = trimmedPhone.replace(/[\s\-\(\)]/g, '');
+  if (cleanPhone.length < 7) {
+    throw new Error('Please enter a valid phone number.');
+  }
+
+  const trimmedEmail = params.email?.trim() || null;
+  if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
+
+  const trimmedGstin = params.gstin?.trim().toUpperCase() || null;
+  if (trimmedGstin) {
+    if (trimmedGstin.length !== 15) {
+      throw new Error('GSTIN must be exactly 15 characters.');
+    }
+    const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    if (!gstinRegex.test(trimmedGstin)) {
+      throw new Error('Invalid GSTIN format. Example: 27AABCU9603R1ZM');
+    }
+  }
+
+  const creditLimit = params.creditLimit !== undefined ? Math.max(0, Number(params.creditLimit)) : 0;
+  if (isNaN(creditLimit)) {
+    throw new Error('Credit limit must be a valid non-negative number.');
+  }
+
+  const creditDays = params.creditDays ?? params.paymentTermsDays ?? 0;
+  if (isNaN(creditDays) || creditDays < 0 || creditDays > 365) {
+    throw new Error('Credit days must be between 0 and 365.');
+  }
+
+  // Duplicate Check scoped to organization
+  if (!params.allowDuplicate) {
+    const { data: existingMatches } = await client
+      .from('customers')
+      .select('id, name, business_name, phone, gstin')
+      .eq('organization_id', orgId)
+      .or(`phone.eq.${cleanPhone}${trimmedGstin ? `,gstin.eq.${trimmedGstin}` : ''}`);
+
+    if (existingMatches && existingMatches.length > 0) {
+      const match = existingMatches[0];
+      const matchName = match.business_name || match.name;
+      throw new Error(`A customer with phone (${match.phone}) or GSTIN (${match.gstin || 'N/A'}) already exists in your organization ("${matchName}").`);
+    }
+  }
+
   const { data, error } = await client.from('customers').insert({
-    organization_id: memberData.organization_id,
-    name: params.name.trim(),
-    business_name: (params.businessName || params.companyName)?.trim() || null,
-    phone: params.phone.trim(),
+    organization_id: orgId,
+    name: secondaryName,
+    business_name: primaryName,
+    phone: cleanPhone,
     whatsapp_phone: params.whatsappPhone?.trim() || null,
-    email: params.email?.trim() || null,
-    gstin: params.gstin?.trim().toUpperCase() || null,
+    email: trimmedEmail,
+    gstin: trimmedGstin,
     billing_address: params.billingAddress?.trim() || 'N/A',
     shipping_address: params.shippingAddress?.trim() || null,
-    credit_limit: params.creditLimit ?? 0,
-    credit_days: params.creditDays ?? params.paymentTermsDays ?? 0,
+    credit_limit: creditLimit,
+    credit_days: creditDays,
     notes: params.notes?.trim() || null,
     is_active: params.isActive !== undefined ? params.isActive : true,
   }).select().single();
@@ -532,17 +600,57 @@ export async function updateCustomer(
     throw new Error('No organization found for current user session.');
   }
 
+  const orgId = memberData.organization_id;
+
+  const trimmedBusiness = params.businessName?.trim() || '';
+  const trimmedName = params.name?.trim() || '';
+  const primaryName = trimmedBusiness || trimmedName;
+  const secondaryName = trimmedName || trimmedBusiness;
+
+  if (!primaryName) {
+    throw new Error('Customer or Business Name is required.');
+  }
+
+  const trimmedPhone = params.phone?.trim() || '';
+  if (!trimmedPhone) {
+    throw new Error('Primary Phone number is required.');
+  }
+
+  const cleanPhone = trimmedPhone.replace(/[\s\-\(\)]/g, '');
+  if (cleanPhone.length < 7) {
+    throw new Error('Please enter a valid phone number.');
+  }
+
+  const trimmedEmail = params.email !== undefined ? (params.email?.trim() || null) : undefined;
+  if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
+
+  const trimmedGstin = params.gstin !== undefined ? (params.gstin?.trim().toUpperCase() || null) : undefined;
+  if (trimmedGstin) {
+    if (trimmedGstin.length !== 15) {
+      throw new Error('GSTIN must be exactly 15 characters.');
+    }
+    const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    if (!gstinRegex.test(trimmedGstin)) {
+      throw new Error('Invalid GSTIN format. Example: 27AABCU9603R1ZM');
+    }
+  }
+
+  const creditLimit = params.creditLimit !== undefined ? Math.max(0, Number(params.creditLimit)) : undefined;
+  const creditDays = params.creditDays !== undefined ? Math.max(0, Number(params.creditDays)) : undefined;
+
   const payload: any = {
-    name: params.name.trim(),
-    business_name: params.businessName !== undefined ? (params.businessName?.trim() || null) : undefined,
-    phone: params.phone.trim(),
+    name: secondaryName,
+    business_name: primaryName,
+    phone: cleanPhone,
     whatsapp_phone: params.whatsappPhone !== undefined ? (params.whatsappPhone?.trim() || null) : undefined,
-    email: params.email !== undefined ? (params.email?.trim() || null) : undefined,
-    gstin: params.gstin !== undefined ? (params.gstin?.trim().toUpperCase() || null) : undefined,
+    email: trimmedEmail,
+    gstin: trimmedGstin,
     billing_address: params.billingAddress !== undefined ? (params.billingAddress?.trim() || 'N/A') : undefined,
     shipping_address: params.shippingAddress !== undefined ? (params.shippingAddress?.trim() || null) : undefined,
-    credit_limit: params.creditLimit !== undefined ? Number(params.creditLimit) : undefined,
-    credit_days: params.creditDays !== undefined ? Number(params.creditDays) : undefined,
+    credit_limit: creditLimit,
+    credit_days: creditDays,
     notes: params.notes !== undefined ? (params.notes?.trim() || null) : undefined,
   };
 
@@ -561,7 +669,7 @@ export async function updateCustomer(
     .from('customers')
     .update(payload)
     .eq('id', customerId)
-    .eq('organization_id', memberData.organization_id)
+    .eq('organization_id', orgId)
     .select()
     .single();
 
@@ -570,7 +678,7 @@ export async function updateCustomer(
 }
 
 /**
- * Safely deletes or archives a customer record based on invoice associations
+ * Safely deletes or archives a customer record based on invoice and payment associations
  */
 export async function deleteCustomer(customerId: string) {
   const client = createBrowserClient();
@@ -590,37 +698,52 @@ export async function deleteCustomer(customerId: string) {
     throw new Error('No organization found for current user session.');
   }
 
-  // Check if customer has associated invoices
-  const { count, error: countError } = await client
+  const orgId = memberData.organization_id;
+
+  // 1. Check if customer has associated invoices
+  const { count: invCount } = await client
     .from('invoices')
     .select('*', { count: 'exact', head: true })
     .eq('customer_id', customerId)
-    .eq('organization_id', memberData.organization_id);
+    .eq('organization_id', orgId);
 
-  if (count && count > 0) {
-    // If has invoices, mark as inactive to preserve GST financial audit trail
+  // 2. Check if customer has associated payments
+  const { count: payCount } = await client
+    .from('payments')
+    .select('*', { count: 'exact', head: true })
+    .eq('customer_id', customerId)
+    .eq('organization_id', orgId);
+
+  const totalRecords = (invCount || 0) + (payCount || 0);
+
+  if (totalRecords > 0) {
+    // Has financial history: archive by marking is_active = false to preserve GST & payment audit trail
     const { error: updateError } = await client
       .from('customers')
       .update({ is_active: false })
       .eq('id', customerId)
-      .eq('organization_id', memberData.organization_id);
+      .eq('organization_id', orgId);
 
     if (updateError) throw updateError;
-    return { archived: true, message: 'Customer has associated invoices and has been marked Inactive to preserve financial audit trail.' };
+    return {
+      archived: true,
+      message: 'Customer has existing financial history (invoices/payments) and was marked Inactive to preserve audit trails.',
+    };
   }
 
+  // No financial history: delete record permanently
   const { error } = await client
     .from('customers')
     .delete()
     .eq('id', customerId)
-    .eq('organization_id', memberData.organization_id);
+    .eq('organization_id', orgId);
 
   if (error) throw error;
   return { deleted: true, message: 'Customer record successfully deleted.' };
 }
 
 /**
- * Adds a new product catalog item to Supabase
+ * Adds a new product catalog item to Supabase with organization isolation and SKU uniqueness check
  */
 export async function addNewProduct(params: {
   name: string;
@@ -657,27 +780,84 @@ export async function addNewProduct(params: {
     throw new Error('No organization found for current user session.');
   }
 
+  const orgId = memberData.organization_id;
+
+  const trimmedName = params.name?.trim() || '';
+  if (!trimmedName) {
+    throw new Error('Product name is required.');
+  }
+
   const sellingPrice = params.sellingPrice ?? params.unitPrice ?? 0;
+  if (isNaN(sellingPrice) || sellingPrice < 0) {
+    throw new Error('Selling price must be a non-negative number.');
+  }
+
   const purchasePrice = params.purchasePrice ?? params.costPrice ?? 0;
-  const taxRate = params.taxRate ?? params.gstRate ?? 18;
+  if (isNaN(purchasePrice) || purchasePrice < 0) {
+    throw new Error('Purchase price/cost must be a non-negative number.');
+  }
+
+  const taxRate = params.taxRate ?? params.gstRate ?? 0;
+  if (isNaN(taxRate) || taxRate < 0 || taxRate > 100) {
+    throw new Error('GST / Tax rate must be between 0% and 100%.');
+  }
+
+  const stockQuantity = params.stockQuantity ?? 0;
+  if (isNaN(stockQuantity) || stockQuantity < 0) {
+    throw new Error('Stock quantity cannot be negative.');
+  }
+
   const lowStockThreshold = params.lowStockThreshold ?? params.reorderLevel ?? 10;
+  if (isNaN(lowStockThreshold) || lowStockThreshold < 0) {
+    throw new Error('Low stock threshold must be a non-negative number.');
+  }
+
+  const trimmedSku = params.sku?.trim() || null;
+  if (trimmedSku) {
+    const { data: existingSku } = await client
+      .from('products')
+      .select('id, name')
+      .eq('organization_id', orgId)
+      .eq('sku', trimmedSku)
+      .limit(1);
+
+    if (existingSku && existingSku.length > 0) {
+      throw new Error(`SKU "${trimmedSku}" is already assigned to another product ("${existingSku[0].name}") in your organization.`);
+    }
+  }
 
   const { data, error } = await client.from('products').insert({
-    organization_id: memberData.organization_id,
-    name: params.name.trim(),
-    sku: params.sku?.trim() || null,
+    organization_id: orgId,
+    name: trimmedName,
+    sku: trimmedSku,
     barcode: params.barcode?.trim() || null,
     hsn_sac: (params.hsnSac || params.hsnCode)?.trim() || null,
     unit: params.unit?.trim() || 'PCS',
     selling_price: sellingPrice,
     purchase_price: purchasePrice,
     tax_rate: taxRate,
-    stock_quantity: params.stockQuantity ?? 0,
+    stock_quantity: 0, // Initial stock set via atomic RPC below
     low_stock_threshold: lowStockThreshold,
     is_active: params.isActive ?? true,
   }).select().single();
 
   if (error) throw error;
+
+  // Apply opening stock atomically via RPC if > 0
+  if (stockQuantity > 0 && data?.id) {
+    const { data: updatedProd, error: stockErr } = await client.rpc('adjust_product_stock_atomic', {
+      p_product_id: data.id,
+      p_adjustment_delta: null,
+      p_new_stock_quantity: stockQuantity,
+      p_movement_type: 'opening_stock',
+      p_note: 'Initial opening stock',
+    });
+
+    if (!stockErr && updatedProd) {
+      return updatedProd;
+    }
+  }
+
   return data;
 }
 
@@ -717,36 +897,98 @@ export async function updateProduct(
     throw new Error('No organization found for current user session.');
   }
 
+  const orgId = memberData.organization_id;
+
   const payload: Record<string, any> = {
     updated_at: new Date().toISOString(),
   };
 
-  if (params.name !== undefined) payload.name = params.name.trim();
-  if (params.sku !== undefined) payload.sku = params.sku ? params.sku.trim() : null;
+  if (params.name !== undefined) {
+    const trimmedName = params.name.trim();
+    if (!trimmedName) throw new Error('Product name cannot be empty.');
+    payload.name = trimmedName;
+  }
+
+  if (params.sku !== undefined) {
+    const trimmedSku = params.sku ? params.sku.trim() : null;
+    if (trimmedSku) {
+      const { data: existingSku } = await client
+        .from('products')
+        .select('id, name')
+        .eq('organization_id', orgId)
+        .eq('sku', trimmedSku)
+        .neq('id', productId)
+        .limit(1);
+
+      if (existingSku && existingSku.length > 0) {
+        throw new Error(`SKU "${trimmedSku}" is already assigned to product "${existingSku[0].name}".`);
+      }
+    }
+    payload.sku = trimmedSku;
+  }
+
   if (params.barcode !== undefined) payload.barcode = params.barcode ? params.barcode.trim() : null;
   if (params.hsnSac !== undefined) payload.hsn_sac = params.hsnSac ? params.hsnSac.trim() : null;
-  if (params.unit !== undefined) payload.unit = params.unit.trim();
-  if (params.sellingPrice !== undefined) payload.selling_price = Number(params.sellingPrice);
-  if (params.purchasePrice !== undefined) payload.purchase_price = Number(params.purchasePrice);
-  if (params.taxRate !== undefined) payload.tax_rate = Number(params.taxRate);
-  if (params.stockQuantity !== undefined) payload.stock_quantity = Number(params.stockQuantity);
-  if (params.lowStockThreshold !== undefined) payload.low_stock_threshold = Number(params.lowStockThreshold);
+  if (params.unit !== undefined) payload.unit = params.unit.trim() || 'PCS';
+
+  if (params.sellingPrice !== undefined) {
+    const val = Number(params.sellingPrice);
+    if (isNaN(val) || val < 0) throw new Error('Selling price must be non-negative.');
+    payload.selling_price = val;
+  }
+
+  if (params.purchasePrice !== undefined) {
+    const val = Number(params.purchasePrice);
+    if (isNaN(val) || val < 0) throw new Error('Purchase price must be non-negative.');
+    payload.purchase_price = val;
+  }
+
+  if (params.taxRate !== undefined) {
+    const val = Number(params.taxRate);
+    if (isNaN(val) || val < 0 || val > 100) throw new Error('Tax rate must be between 0% and 100%.');
+    payload.tax_rate = val;
+  }
+
+  let newStockVal: number | undefined;
+  if (params.stockQuantity !== undefined) {
+    const val = Number(params.stockQuantity);
+    if (isNaN(val) || val < 0) throw new Error('Stock quantity cannot be negative.');
+    newStockVal = val;
+    // stock_quantity is NOT mutated directly via payload, but via RPC below
+  }
+
+  if (params.lowStockThreshold !== undefined) {
+    const val = Number(params.lowStockThreshold);
+    if (isNaN(val) || val < 0) throw new Error('Low stock threshold must be non-negative.');
+    payload.low_stock_threshold = val;
+  }
+
   if (params.isActive !== undefined) payload.is_active = params.isActive;
 
   const { data, error } = await client
     .from('products')
     .update(payload)
     .eq('id', productId)
-    .eq('organization_id', memberData.organization_id)
+    .eq('organization_id', orgId)
     .select()
     .single();
 
   if (error) throw error;
+
+  // Apply stock quantity change via authoritative RPC
+  if (newStockVal !== undefined) {
+    const updatedProd = await adjustProductStock(productId, {
+      newStockQuantity: newStockVal,
+      reason: 'Product record edit',
+    });
+    return updatedProd || data;
+  }
+
   return data;
 }
 
 /**
- * Adjusts stock quantity for a product (direct set or delta change)
+ * Adjusts stock quantity for a product atomically using database RPC
  */
 export async function adjustProductStock(
   productId: string,
@@ -763,48 +1005,18 @@ export async function adjustProductStock(
     throw new Error('Please sign in to adjust product stock.');
   }
 
-  const { data: memberData } = await client
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', authData.user.id)
-    .single();
+  const { data, error } = await client.rpc('adjust_product_stock_atomic', {
+    p_product_id: productId,
+    p_adjustment_delta: params.adjustmentDelta ?? null,
+    p_new_stock_quantity: params.newStockQuantity ?? null,
+    p_movement_type: 'adjustment',
+    p_note: params.reason?.trim() || 'Manual stock adjustment',
+  });
 
-  if (!memberData?.organization_id) {
-    throw new Error('No organization found for current user session.');
+  if (error) {
+    throw new Error(error.message || 'Failed to adjust product stock.');
   }
 
-  // Fetch current product stock
-  const { data: currentProd, error: fetchErr } = await client
-    .from('products')
-    .select('id, stock_quantity')
-    .eq('id', productId)
-    .eq('organization_id', memberData.organization_id)
-    .single();
-
-  if (fetchErr || !currentProd) {
-    throw new Error('Product not found or access denied.');
-  }
-
-  let finalStock = currentProd.stock_quantity || 0;
-
-  if (params.newStockQuantity !== undefined) {
-    finalStock = Math.max(0, Number(params.newStockQuantity));
-  } else if (params.adjustmentDelta !== undefined) {
-    finalStock = Math.max(0, (currentProd.stock_quantity || 0) + Number(params.adjustmentDelta));
-  }
-
-  const { data, error } = await client
-    .from('products')
-    .update({
-      stock_quantity: finalStock,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', productId)
-    .eq('organization_id', memberData.organization_id)
-    .select()
-    .single();
-
-  if (error) throw error;
   return data;
 }
 
@@ -829,19 +1041,21 @@ export async function deleteProduct(productId: string) {
     throw new Error('No organization found for current user session.');
   }
 
+  const orgId = memberData.organization_id;
+
   // Check if product is referenced in invoice_items
-  const { count, error: countError } = await client
+  const { count } = await client
     .from('invoice_items')
     .select('*', { count: 'exact', head: true })
     .eq('product_id', productId);
 
   if (count && count > 0) {
-    // If has line items, deactivate to preserve GST audit trail
+    // If referenced in invoices, mark inactive to preserve historical audit trail
     const { error: updateError } = await client
       .from('products')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('id', productId)
-      .eq('organization_id', memberData.organization_id);
+      .eq('organization_id', orgId);
 
     if (updateError) throw updateError;
     return {
@@ -854,7 +1068,7 @@ export async function deleteProduct(productId: string) {
     .from('products')
     .delete()
     .eq('id', productId)
-    .eq('organization_id', memberData.organization_id);
+    .eq('organization_id', orgId);
 
   if (error) throw error;
   return { deleted: true, message: 'Product successfully deleted from catalog.' };
@@ -1026,10 +1240,22 @@ export async function updateInvoiceStatus(invoiceId: string, status: InvoiceStat
 }
 
 /**
- * Cancels an invoice in Supabase
+ * Cancels an invoice in Supabase and atomically restores deducted product stock
  */
 export async function cancelInvoice(invoiceId: string) {
-  return updateInvoiceStatus(invoiceId, 'cancelled');
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+  if (!authData?.user) throw new Error('Please sign in to cancel invoice.');
+
+  const { data, error } = await client.rpc('cancel_invoice_atomic', {
+    p_invoice_id: invoiceId,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to cancel invoice.');
+  }
+
+  return data;
 }
 
 /**
@@ -1122,212 +1348,54 @@ export async function createNewInvoice(params: {
     throw new Error('No organization found for current user session.');
   }
 
-  const orgId = memberData.organization_id;
-
-  // Retrieve customer for place of supply validation if needed
-  const { data: customer } = await client
-    .from('customers')
-    .select('id, name, billing_address, gstin')
-    .eq('id', params.customerId)
-    .eq('organization_id', orgId)
-    .single();
-
-  // Retrieve organization for state code comparison
-  const { data: orgData } = await client
-    .from('organizations')
-    .select('invoice_prefix, invoice_sequence, state_code, state')
-    .eq('id', orgId)
-    .single();
-
-  let subtotal = params.subtotal ?? 0;
-  let discountTotal = params.discountTotal ?? 0;
-  let taxableAmount = params.taxableAmount ?? (subtotal - discountTotal);
-  let cgst = params.cgst ?? 0;
-  let sgst = params.sgst ?? 0;
-  let igst = params.igst ?? 0;
-  let cess = params.cess ?? 0;
-  let totalAmount = params.totalAmount;
-
-  // Calculate deterministically from items if items are provided
-  if (params.items && params.items.length > 0) {
-    let computedSubtotal = 0;
-    let computedDiscount = 0;
-    let computedTaxable = 0;
-    let computedCgst = 0;
-    let computedSgst = 0;
-    let computedIgst = 0;
-    let computedCess = 0;
-
-    params.items.forEach((item) => {
-      const rate = item.taxRate ?? item.gstRate ?? 18;
-      const itemSubtotal = item.quantity * item.unitPrice;
-      const itemDisc = item.discount ?? 0;
-      const itemTaxable = item.taxableAmount ?? Math.max(0, itemSubtotal - itemDisc);
-
-      computedSubtotal += itemSubtotal;
-      computedDiscount += itemDisc;
-      computedTaxable += itemTaxable;
-
-      if (item.cgst !== undefined && item.sgst !== undefined) {
-        computedCgst += item.cgst;
-        computedSgst += item.sgst;
-        computedIgst += item.igst ?? 0;
-      } else if (item.igst !== undefined && item.igst > 0) {
-        computedIgst += item.igst;
-      } else {
-        // Fallback deterministic tax calculation
-        const itemTax = (itemTaxable * rate) / 100;
-        computedCgst += itemTax / 2;
-        computedSgst += itemTax / 2;
-      }
-
-      computedCess += item.cess ?? 0;
-    });
-
-    subtotal = computedSubtotal;
-    discountTotal = computedDiscount;
-    taxableAmount = computedTaxable;
-    cgst = params.cgst ?? Math.round(computedCgst * 100) / 100;
-    sgst = params.sgst ?? Math.round(computedSgst * 100) / 100;
-    igst = params.igst ?? Math.round(computedIgst * 100) / 100;
-    cess = params.cess ?? Math.round(computedCess * 100) / 100;
-
-    if (totalAmount === undefined) {
-      totalAmount = Math.round(taxableAmount + cgst + sgst + igst + cess);
-    }
+  if (!params.items || params.items.length === 0) {
+    throw new Error('Invoice must contain at least one line item.');
   }
 
-  const finalTotal = totalAmount ?? Math.round(taxableAmount + cgst + sgst + igst + cess);
-  const issueDate = params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0];
-  const invoiceStatus = params.status || 'issued';
+  const rpcPayload = {
+    p_customer_id: params.customerId,
+    p_due_date: params.dueDate,
+    p_issue_date: params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0],
+    p_invoice_type: params.invoiceType || 'tax_invoice',
+    p_place_of_supply: params.placeOfSupply || null,
+    p_notes: params.notes || null,
+    p_terms: params.terms || null,
+    p_status: params.status || 'issued',
+    p_items: params.items.map((it) => ({
+      productId: it.productId || null,
+      productName: it.productName,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      discount: it.discount || 0,
+      taxRate: typeof it.taxRate === 'number' ? it.taxRate : (typeof it.gstRate === 'number' ? it.gstRate : 0),
+      unit: it.unit || 'PCS',
+      hsnSac: it.hsnSac || it.hsnCode || '',
+      cess: it.cess || 0,
+    })),
+    p_custom_invoice_number: params.invoiceNumber?.trim() || null,
+  };
 
-  let invNumber = params.invoiceNumber?.trim();
-  if (!invNumber) {
-    // 1. Try atomic DB function get_next_invoice_number
-    try {
-      const { data: rpcNumber, error: rpcErr } = await client.rpc('get_next_invoice_number', {
-        p_org_id: orgId,
-      });
-      if (!rpcErr && rpcNumber) {
-        invNumber = rpcNumber;
-      }
-    } catch {
-      // Ignore and fallback to optimistic concurrency lock loop
-    }
+  const { data: rpcRes, error: rpcErr } = await client.rpc('create_invoice_with_items', rpcPayload);
 
-    // 2. Fallback: Concurrency-safe optimistic sequence update
-    if (!invNumber) {
-      const prefix = orgData?.invoice_prefix || 'INV';
-      let currentSeq = orgData?.invoice_sequence ?? 0;
-
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const nextSeq = currentSeq + 1;
-        const { data: updatedOrg } = await client
-          .from('organizations')
-          .update({ invoice_sequence: nextSeq, updated_at: new Date().toISOString() })
-          .eq('id', orgId)
-          .eq('invoice_sequence', currentSeq)
-          .select('invoice_sequence')
-          .maybeSingle();
-
-        if (updatedOrg) {
-          invNumber = `${prefix}-${String(nextSeq).padStart(4, '0')}`;
-          break;
-        }
-
-        // Concurrency conflict: fetch refreshed sequence and retry
-        const { data: refOrg } = await client
-          .from('organizations')
-          .select('invoice_sequence')
-          .eq('id', orgId)
-          .single();
-        currentSeq = refOrg?.invoice_sequence ?? (currentSeq + 1);
-      }
-
-      if (!invNumber) {
-        invNumber = `${prefix}-${Date.now().toString().slice(-6)}`;
-      }
-    }
+  if (rpcErr) {
+    throw new Error(rpcErr.message || 'Failed to create invoice.');
   }
 
-  const { data: invoice, error: invError } = await client
+  if (!rpcRes || !rpcRes.success || !rpcRes.id) {
+    throw new Error('Invoice creation failed on server.');
+  }
+
+  const { data: insertedInv, error: fetchErr } = await client
     .from('invoices')
-    .insert({
-      organization_id: orgId,
-      customer_id: params.customerId,
-      invoice_number: invNumber,
-      invoice_type: params.invoiceType || 'tax_invoice',
-      status: invoiceStatus,
-      issue_date: issueDate,
-      due_date: params.dueDate,
-      subtotal,
-      discount_total: discountTotal,
-      taxable_amount: taxableAmount,
-      cgst,
-      sgst,
-      igst,
-      cess,
-      total: finalTotal,
-      place_of_supply: params.placeOfSupply || null,
-      notes: params.notes || null,
-      terms: params.terms || null,
-      source: 'web',
-      created_by: authData.user.id,
-    })
-    .select()
+    .select('*')
+    .eq('id', rpcRes.id)
     .single();
 
-  if (invError) throw invError;
-
-  if (params.items && params.items.length > 0) {
-    const lineItems = params.items.map((item, idx) => {
-      const itemTaxRate = item.taxRate ?? item.gstRate ?? 18;
-      const itemSub = item.quantity * item.unitPrice;
-      const itemDisc = item.discount ?? 0;
-      const itemTaxable = item.taxableAmount ?? Math.max(0, itemSub - itemDisc);
-
-      let itemCgst = item.cgst;
-      let itemSgst = item.sgst;
-      let itemIgst = item.igst ?? 0;
-      let itemCess = item.cess ?? 0;
-
-      if (itemCgst === undefined || itemSgst === undefined) {
-        if (itemIgst > 0) {
-          itemCgst = 0;
-          itemSgst = 0;
-        } else {
-          const itemTax = (itemTaxable * itemTaxRate) / 100;
-          itemCgst = Math.round((itemTax / 2) * 100) / 100;
-          itemSgst = Math.round((itemTax / 2) * 100) / 100;
-        }
-      }
-
-      const lineTot = item.lineTotal ?? Math.round(itemTaxable + (itemCgst || 0) + (itemSgst || 0) + itemIgst + itemCess);
-
-      return {
-        invoice_id: invoice.id,
-        product_id: item.productId || null,
-        description: item.productName,
-        hsn_sac: item.hsnSac || item.hsnCode || null,
-        quantity: item.quantity,
-        unit: item.unit || 'PCS',
-        unit_price: item.unitPrice,
-        discount: itemDisc,
-        taxable_amount: itemTaxable,
-        tax_rate: itemTaxRate,
-        cgst: itemCgst || 0,
-        sgst: itemSgst || 0,
-        igst: itemIgst,
-        cess: itemCess,
-        line_total: lineTot,
-        sort_order: idx,
-      };
-    });
-
-    await client.from('invoice_items').insert(lineItems);
+  if (fetchErr || !insertedInv) {
+    throw new Error(fetchErr?.message || 'Invoice created successfully but failed to retrieve record.');
   }
 
-  return invoice;
+  return insertedInv;
 }
 
 /**
@@ -1364,147 +1432,56 @@ export async function recordNewPayment(params: {
     throw new Error('No organization found for current user session.');
   }
 
-  const orgId = memberData.organization_id;
-
-  // Validate positive amount
   const amount = Number(params.amount);
   if (isNaN(amount) || amount <= 0) {
     throw new Error('Payment amount must be greater than 0.');
   }
 
-  // Verify customer belongs to this organization
-  const { data: customer, error: custError } = await client
-    .from('customers')
-    .select('id, name, business_name, organization_id')
-    .eq('id', params.customerId)
-    .eq('organization_id', orgId)
-    .single();
-
-  if (custError || !customer) {
-    throw new Error('Customer does not exist or does not belong to your organization.');
-  }
-
-  let invoiceRecord: any = null;
-  let remainingBalance = 0;
-  let currentPaidTotal = 0;
-
-  // If invoiceId is provided, verify ownership and check remaining balance
-  if (params.invoiceId) {
-    const { data: inv, error: invError } = await client
-      .from('invoices')
-      .select('id, invoice_number, total, customer_id, organization_id, status')
-      .eq('id', params.invoiceId)
-      .eq('organization_id', orgId)
-      .single();
-
-    if (invError || !inv) {
-      throw new Error('Invoice not found or does not belong to your organization.');
-    }
-
-    invoiceRecord = inv;
-
-    // Fetch existing valid payments for this invoice
-    const { data: existingPayments } = await client
-      .from('payments')
-      .select('amount, status')
-      .eq('invoice_id', inv.id)
-      .eq('organization_id', orgId);
-
-    const validPayments = (existingPayments || []).filter(
-      (p: any) => !['failed', 'cancelled', 'reversed', 'bounced'].includes(p.status?.toLowerCase())
-    );
-
-    currentPaidTotal = validPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-    remainingBalance = Math.max(0, Number(inv.total) - currentPaidTotal);
-
-    // Validate payment amount against remaining invoice balance
-    if (amount > remainingBalance + 0.01 && !params.allowOverpayment) {
-      throw new Error(
-        `Payment amount (₹${amount.toLocaleString('en-IN')}) exceeds the remaining invoice balance (₹${remainingBalance.toLocaleString('en-IN')}) for invoice ${inv.invoice_number}.`
-      );
-    }
-  }
-
-  const paymentDateStr = params.paidAt || params.paymentDate || new Date().toISOString().split('T')[0];
-  const payMethod = (params.method || params.paymentMethod || 'cash') as PaymentMethod;
+  const payMethod = (params.method || params.paymentMethod || 'cash').toLowerCase();
   const payReference = params.reference || params.referenceNumber || null;
+  const payDate = params.paidAt || params.paymentDate || new Date().toISOString().split('T')[0];
 
-  // Insert payment record into payments table
-  const { data: payment, error: payError } = await client
+  const rpcPayload = {
+    p_customer_id: params.customerId,
+    p_amount: amount,
+    p_invoice_id: params.invoiceId || null,
+    p_method: payMethod,
+    p_reference: payReference,
+    p_paid_at: payDate,
+    p_notes: params.notes || null,
+  };
+
+  const { data: rpcRes, error: rpcErr } = await client.rpc('record_payment_with_allocation', rpcPayload);
+
+  if (rpcErr) {
+    throw new Error(rpcErr.message || 'Failed to record payment.');
+  }
+
+  if (!rpcRes || !rpcRes.success || !rpcRes.payment_id) {
+    throw new Error('Payment recording failed on server.');
+  }
+
+  const { data: paymentRecord, error: payFetchErr } = await client
     .from('payments')
-    .insert({
-      organization_id: orgId,
-      customer_id: params.customerId,
-      invoice_id: params.invoiceId || null,
-      amount: amount,
-      paid_at: paymentDateStr,
-      method: payMethod,
-      reference: payReference,
-      status: 'completed',
-      metadata: params.notes ? { notes: params.notes } : {},
-    })
-    .select()
+    .select('*')
+    .eq('id', rpcRes.payment_id)
     .single();
 
-  if (payError) throw payError;
-
-  // Update invoice status if associated with an invoice
-  let updatedInvoiceStatus = invoiceRecord?.status;
-  let newOutstanding = remainingBalance;
-
-  if (invoiceRecord) {
-    const newTotalPaid = currentPaidTotal + amount;
-    newOutstanding = Math.max(0, Number(invoiceRecord.total) - newTotalPaid);
-
-    if (newOutstanding === 0) {
-      updatedInvoiceStatus = 'paid';
-    } else if (newTotalPaid > 0) {
-      updatedInvoiceStatus = 'partially_paid';
-    }
-
-    await client
-      .from('invoices')
-      .update({
-        status: updatedInvoiceStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', invoiceRecord.id)
-      .eq('organization_id', orgId);
+  if (payFetchErr || !paymentRecord) {
+    throw new Error(payFetchErr?.message || 'Payment recorded successfully but failed to fetch record.');
   }
 
-  // Record transaction in audit_logs
-  try {
-    await client.from('audit_logs').insert({
-      organization_id: orgId,
-      user_id: authData.user.id,
-      action: 'RECORD_PAYMENT',
-      entity_type: 'payment',
-      entity_id: payment.id,
-      metadata: {
-        invoice_id: params.invoiceId || null,
-        invoice_number: invoiceRecord?.invoice_number || null,
-        customer_id: params.customerId,
-        customer_name: customer.business_name || customer.name,
-        amount: amount,
-        method: payMethod,
-        remaining_balance: newOutstanding,
-        status: 'completed',
-        notes: params.notes || null,
-      },
-      created_at: new Date().toISOString(),
-    });
-  } catch (auditErr) {
-    console.warn('Audit log write warning:', auditErr);
-  }
+  const custName = rpcRes.customer_name || 'Customer';
+  const invNumber = rpcRes.invoice_number;
+  const newOutstanding = Number(rpcRes.new_outstanding || 0);
 
-  const custName = customer.business_name || customer.name;
-  const receiptSummary = invoiceRecord
-    ? `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded against ${invoiceRecord.invoice_number} (${custName}). Remaining outstanding: ₹${newOutstanding.toLocaleString('en-IN')}.`
+  const receiptSummary = invNumber
+    ? `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded against ${invNumber} (${custName}). Remaining outstanding: ₹${newOutstanding.toLocaleString('en-IN')}.`
     : `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded for ${custName}.`;
 
   return {
-    ...payment,
-    invoice_number: invoiceRecord?.invoice_number,
+    ...paymentRecord,
+    invoice_number: invNumber,
     customer_name: custName,
     new_outstanding: newOutstanding,
     receipt_summary: receiptSummary,

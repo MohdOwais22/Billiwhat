@@ -292,70 +292,18 @@ export async function allocatePaymentToInvoice(paymentId: string, invoiceId: str
     throw new Error('No organization found for current user session.');
   }
 
-  const orgId = memberData.organization_id;
+  const rpcPayload = {
+    p_payment_id: paymentId,
+    p_invoice_id: invoiceId,
+  };
 
-  // 1. Fetch payment to verify ownership and current allocation
-  const { data: payment, error: payErr } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('id', paymentId)
-    .eq('organization_id', orgId)
-    .single();
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('allocate_payment_to_invoice', rpcPayload);
 
-  if (payErr || !payment) {
-    throw new Error('Payment not found or access denied.');
+  if (rpcErr) {
+    throw new Error(rpcErr.message || 'Failed to allocate payment to invoice.');
   }
 
-  // 2. Fetch target invoice to verify customer match and remaining balance
-  const { data: invoice, error: invErr } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('id', invoiceId)
-    .eq('organization_id', orgId)
-    .single();
-
-  if (invErr || !invoice) {
-    throw new Error('Invoice not found or access denied.');
+  if (!rpcRes || !rpcRes.success) {
+    throw new Error('Payment allocation failed on server.');
   }
-
-  if (invoice.customer_id !== payment.customer_id) {
-    throw new Error('Invoice does not belong to the payment customer account.');
-  }
-
-  // 3. Update payment with the allocated invoice ID
-  const { error: updatePayErr } = await supabase
-    .from('payments')
-    .update({
-      invoice_id: invoiceId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', paymentId)
-    .eq('organization_id', orgId);
-
-  if (updatePayErr) {
-    throw new Error(`Failed to allocate payment: ${updatePayErr.message}`);
-  }
-
-  // 4. Recalculate invoice status
-  const { data: allInvPayments } = await supabase
-    .from('payments')
-    .select('amount, status')
-    .eq('invoice_id', invoiceId)
-    .eq('organization_id', orgId);
-
-  const totalPaid = (allInvPayments || [])
-    .filter((p) => !['failed', 'cancelled', 'bounced', 'reversed'].includes((p.status || '').toLowerCase()))
-    .reduce((sum, p) => sum + Number(p.amount), 0);
-
-  const remaining = Math.max(0, Number(invoice.total) - totalPaid);
-  const newStatus = remaining <= 0.01 ? 'paid' : totalPaid > 0 ? 'partially_paid' : invoice.status;
-
-  await supabase
-    .from('invoices')
-    .update({
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', invoiceId)
-    .eq('organization_id', orgId);
 }

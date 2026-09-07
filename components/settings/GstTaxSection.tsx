@@ -22,9 +22,9 @@ export function GstTaxSection({
     gstin: gstProfile?.gstin || organization.gstin || '',
     legal_name: gstProfile?.legal_name || organization.legal_name || organization.name || '',
     trade_name: gstProfile?.trade_name || organization.name || '',
-    state_code: gstProfile?.state_code || organization.state_code || '27',
+    state_code: gstProfile?.state_code || organization.state_code || '',
     registration_type: gstProfile?.registration_type || 'Regular',
-    place_of_supply: gstProfile?.place_of_supply || organization.state || 'Maharashtra',
+    place_of_supply: gstProfile?.place_of_supply || organization.state || '',
     e_invoice_enabled: gstProfile?.e_invoice_enabled || false,
     e_way_bill_enabled: gstProfile?.e_way_bill_enabled || false,
   });
@@ -38,9 +38,9 @@ export function GstTaxSection({
       gstin: gstProfile?.gstin || organization.gstin || '',
       legal_name: gstProfile?.legal_name || organization.legal_name || organization.name || '',
       trade_name: gstProfile?.trade_name || organization.name || '',
-      state_code: gstProfile?.state_code || organization.state_code || '27',
+      state_code: gstProfile?.state_code || organization.state_code || '',
       registration_type: gstProfile?.registration_type || 'Regular',
-      place_of_supply: gstProfile?.place_of_supply || organization.state || 'Maharashtra',
+      place_of_supply: gstProfile?.place_of_supply || organization.state || '',
       e_invoice_enabled: gstProfile?.e_invoice_enabled || false,
       e_way_bill_enabled: gstProfile?.e_way_bill_enabled || false,
     });

@@ -212,11 +212,11 @@ export function RecordPaymentModal({
         amount: amountNum,
         method: paymentMethod,
         paymentMethod,
-        reference: referenceNumber || (paymentMethod === 'cash' ? `CASH-${Date.now().toString().slice(-6)}` : undefined),
-        referenceNumber: referenceNumber || (paymentMethod === 'cash' ? `CASH-${Date.now().toString().slice(-6)}` : undefined),
+        reference: referenceNumber.trim() || undefined,
+        referenceNumber: referenceNumber.trim() || undefined,
         paidAt: paymentDate,
         paymentDate,
-        notes: notes || (selectedInvoice ? `Payment for Invoice #${selectedInvoice.invoice_number}` : 'Direct Customer Account Settlement'),
+        notes: notes.trim() || (selectedInvoice ? `Payment for Invoice #${selectedInvoice.invoice_number}` : 'Direct Customer Account Settlement'),
       });
 
       const selectedCustomerObj = customers.find((c) => c.id === selectedCustomerId);

@@ -96,11 +96,11 @@ export function CustomerDetailModal({
       totalPaid += paid;
       totalOutstanding += balance;
 
-      const dueDate = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
-      dueDate.setHours(0, 0, 0, 0);
-
       if (balance > 0) {
-        if (dueDate < today || inv.status === 'overdue' || (inv.days_overdue && inv.days_overdue > 0)) {
+        const isOverdue = Boolean(
+          inv.due_date && new Date(inv.due_date).setHours(0, 0, 0, 0) < today.getTime()
+        );
+        if (isOverdue) {
           overdueAmount += balance;
           overdueCount += 1;
         } else {

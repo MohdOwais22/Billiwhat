@@ -18,6 +18,7 @@ import { Customer, GstProfile, InvoiceStatus, Organization, Product } from '@/ty
 import { createNewInvoice, getNextSequentialInvoiceNumber } from '@/lib/services/dashboardService';
 import { formatINR } from '@/lib/utils/formatters';
 import { INDIAN_STATES, getStateNameByCode, getStateCodeByName } from '@/lib/constants/indianStates';
+import { computeInvoiceSummary, computeLineItem, roundPaise } from '@/lib/utils/taxCalculation';
 
 interface LineItemForm {
   id: string;
@@ -61,7 +62,7 @@ export function CreateInvoiceModal({
   const [nextSeqPreview, setNextSeqPreview] = useState('INV-0001');
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [placeOfSupply, setPlaceOfSupply] = useState('27');
+  const [placeOfSupply, setPlaceOfSupply] = useState('');
   const [invoiceType, setInvoiceType] = useState('tax_invoice');
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('1. Goods once sold will not be taken back or exchanged.\n2. Interest @18% p.a. will be charged if payment is not made within credit term.');
@@ -88,15 +89,15 @@ export function CreateInvoiceModal({
         setNextSeqPreview(seq);
       });
 
-      const defaultStateCode = gstProfile?.state_code || organization?.state_code || '27';
+      const defaultStateCode = gstProfile?.state_code || organization?.state_code || '';
       setPlaceOfSupply(defaultStateCode);
     }
   }, [isOpen, gstProfile, organization]);
 
   if (!isOpen) return null;
 
-  const sellerStateCode = gstProfile?.state_code || organization?.state_code || '27';
-  const isInterState = placeOfSupply !== sellerStateCode;
+  const sellerStateCode = gstProfile?.state_code || organization?.state_code || '';
+  const isInterState = Boolean(sellerStateCode && placeOfSupply && sellerStateCode !== placeOfSupply);
 
   // Derive due date & place of supply when customer is selected
   const handleCustomerChange = (newCustId: string) => {
@@ -135,7 +136,7 @@ export function CreateInvoiceModal({
         hsnSac: prod.hsn_sac || '',
         unit: prod.unit || 'PCS',
         unitPrice: prod.selling_price > 0 ? String(prod.selling_price) : '',
-        taxRate: prod.tax_rate ?? 18,
+        taxRate: prod.tax_rate ?? 0,
       };
     } else {
       updated[index] = {
@@ -192,53 +193,20 @@ export function CreateInvoiceModal({
     setItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  // Deterministic Line Item Computations
-  const computedItems = items.map((item) => {
-    const qty = parseFloat(item.quantity) || 0;
-    const rate = parseFloat(item.unitPrice) || 0;
-    const disc = parseFloat(item.discount) || 0;
-    const gross = qty * rate;
-    const taxable = Math.max(0, gross - disc);
-    const taxRate = item.taxRate || 0;
-    const taxAmount = (taxable * taxRate) / 100;
-
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
-
-    if (isInterState) {
-      igst = taxAmount;
-    } else {
-      cgst = taxAmount / 2;
-      sgst = taxAmount / 2;
-    }
-
-    const lineTotal = taxable + taxAmount;
-
-    return {
-      ...item,
-      qty,
-      rate,
-      disc,
-      gross,
-      taxable,
-      taxRate,
-      cgst,
-      sgst,
-      igst,
-      taxAmount,
-      lineTotal,
-    };
-  });
-
-  const totalGross = computedItems.reduce((acc, it) => acc + it.gross, 0);
-  const totalDiscount = computedItems.reduce((acc, it) => acc + it.disc, 0);
-  const totalTaxable = computedItems.reduce((acc, it) => acc + it.taxable, 0);
-  const totalCgst = computedItems.reduce((acc, it) => acc + it.cgst, 0);
-  const totalSgst = computedItems.reduce((acc, it) => acc + it.sgst, 0);
-  const totalIgst = computedItems.reduce((acc, it) => acc + it.igst, 0);
-  const totalTax = isInterState ? totalIgst : totalCgst + totalSgst;
-  const grandTotal = Math.round(totalTaxable + totalTax);
+  // Deterministic Line Item & Summary Computations using taxCalculation module
+  const summary = computeInvoiceSummary(
+    items.map((it) => ({
+      productId: it.productId,
+      productName: it.productName,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      discount: it.discount,
+      taxRate: it.taxRate,
+      unit: it.unit,
+      hsnSac: it.hsnSac,
+    })),
+    isInterState
+  );
 
   const handleSubmit = async (submitStatus: InvoiceStatus = 'issued') => {
     if (!customerId) {
@@ -251,8 +219,8 @@ export function CreateInvoiceModal({
       return;
     }
 
-    const validItems = computedItems.filter(
-      (it) => it.productName.trim() && it.qty > 0 && it.rate >= 0
+    const validItems = summary.items.filter(
+      (it) => it.productName.trim() && it.quantity > 0 && it.unitPrice >= 0
     );
 
     if (validItems.length === 0) {
@@ -260,8 +228,14 @@ export function CreateInvoiceModal({
       return;
     }
 
-    if (grandTotal <= 0) {
+    if (summary.grandTotal <= 0) {
       setErrorMsg('Invoice grand total must be greater than zero.');
+      return;
+    }
+
+    const hasTaxableItems = validItems.some((it) => it.taxRate > 0);
+    if (hasTaxableItems && !sellerStateCode) {
+      setErrorMsg('Seller business state / GST profile is missing. Please update your business state in Settings before issuing tax invoices.');
       return;
     }
 
@@ -280,28 +254,28 @@ export function CreateInvoiceModal({
         invoiceDate,
         dueDate,
         placeOfSupply: placeOfSupplyName,
-        subtotal: totalGross,
-        discountTotal: totalDiscount,
-        taxableAmount: totalTaxable,
-        cgst: Math.round(totalCgst * 100) / 100,
-        sgst: Math.round(totalSgst * 100) / 100,
-        igst: Math.round(totalIgst * 100) / 100,
-        cess: 0,
-        totalAmount: grandTotal,
+        subtotal: summary.subtotal,
+        discountTotal: summary.discountTotal,
+        taxableAmount: summary.taxableAmount,
+        cgst: summary.cgst,
+        sgst: summary.sgst,
+        igst: summary.igst,
+        cess: summary.cess,
+        totalAmount: summary.grandTotal,
         items: validItems.map((item) => ({
           productId: item.productId || undefined,
           productName: item.productName.trim(),
           hsnSac: item.hsnSac.trim() || undefined,
-          quantity: item.qty,
+          quantity: item.quantity,
           unit: item.unit || 'PCS',
-          unitPrice: item.rate,
-          discount: item.disc,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
           taxRate: item.taxRate,
-          taxableAmount: item.taxable,
+          taxableAmount: item.taxableAmount,
           cgst: item.cgst,
           sgst: item.sgst,
           igst: item.igst,
-          cess: 0,
+          cess: item.cess,
           lineTotal: item.lineTotal,
         })),
         notes: notes.trim() || undefined,
@@ -398,6 +372,22 @@ export function CreateInvoiceModal({
                     </option>
                   ))}
                 </select>
+                {customerId && (() => {
+                  const cust = customers.find((c) => c.id === customerId);
+                  if (!cust) return null;
+                  return (
+                    <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-600 flex-wrap">
+                      {cust.credit_limit ? (
+                        <span>Credit Limit: <strong className="font-mono text-slate-900">{formatINR(cust.credit_limit)}</strong></span>
+                      ) : (
+                        <span className="text-slate-400">No credit limit configured</span>
+                      )}
+                      {cust.credit_days ? (
+                        <span>• Term: <strong className="font-mono text-slate-900">{cust.credit_days} days</strong></span>
+                      ) : null}
+                    </div>
+                  );
+                })()}
                 {customers.length === 0 && (
                   <p className="text-[11px] text-amber-700 mt-1">
                     No customers found in ledger. Please add a customer first.
@@ -682,37 +672,37 @@ export function CreateInvoiceModal({
             <div className="p-4 bg-slate-900 text-white rounded-xl space-y-2 text-xs font-sans">
               <div className="flex justify-between text-slate-300">
                 <span>Taxable Value (Subtotal):</span>
-                <span className="font-mono font-bold">{formatINR(totalTaxable)}</span>
+                <span className="font-mono font-bold">{formatINR(summary.taxableAmount)}</span>
               </div>
 
-              {totalDiscount > 0 && (
+              {summary.discountTotal > 0 && (
                 <div className="flex justify-between text-emerald-400">
                   <span>Total Discount Applied:</span>
-                  <span className="font-mono font-bold">-{formatINR(totalDiscount)}</span>
+                  <span className="font-mono font-bold">-{formatINR(summary.discountTotal)}</span>
                 </div>
               )}
 
               {isInterState ? (
                 <div className="flex justify-between text-slate-300">
                   <span>Integrated GST (IGST):</span>
-                  <span className="font-mono font-bold">+{formatINR(totalIgst)}</span>
+                  <span className="font-mono font-bold">+{formatINR(summary.igst)}</span>
                 </div>
               ) : (
                 <>
                   <div className="flex justify-between text-slate-300">
                     <span>Central GST (CGST):</span>
-                    <span className="font-mono font-bold">+{formatINR(totalCgst)}</span>
+                    <span className="font-mono font-bold">+{formatINR(summary.cgst)}</span>
                   </div>
                   <div className="flex justify-between text-slate-300">
                     <span>State GST (SGST):</span>
-                    <span className="font-mono font-bold">+{formatINR(totalSgst)}</span>
+                    <span className="font-mono font-bold">+{formatINR(summary.sgst)}</span>
                   </div>
                 </>
               )}
 
               <div className="flex justify-between text-sm font-bold text-emerald-400 pt-2 border-t border-slate-800">
                 <span>Grand Total:</span>
-                <span className="font-mono text-base">{formatINR(grandTotal)}</span>
+                <span className="font-mono text-base">{formatINR(summary.grandTotal)}</span>
               </div>
             </div>
           </div>
@@ -732,7 +722,7 @@ export function CreateInvoiceModal({
               <button
                 type="button"
                 onClick={() => handleSubmit('draft')}
-                disabled={isSubmitting || grandTotal <= 0}
+                disabled={isSubmitting || summary.grandTotal <= 0}
                 className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 rounded-lg transition cursor-pointer"
               >
                 Save as Draft
@@ -740,14 +730,14 @@ export function CreateInvoiceModal({
 
               <button
                 type="submit"
-                disabled={isSubmitting || grandTotal <= 0}
+                disabled={isSubmitting || summary.grandTotal <= 0}
                 className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition shadow-xs cursor-pointer"
                 id="submit-create-invoice-btn"
               >
                 {isSubmitting
                   ? 'Issuing Invoice...'
-                  : grandTotal > 0
-                  ? `Issue Tax Invoice (${formatINR(grandTotal)})`
+                  : summary.grandTotal > 0
+                  ? `Issue Tax Invoice (${formatINR(summary.grandTotal)})`
                   : 'Issue Tax Invoice'}
               </button>
             </div>

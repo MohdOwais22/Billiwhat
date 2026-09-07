@@ -29,8 +29,8 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const priceNum = parseFloat(unitPrice);
-    if (!name.trim() || isNaN(priceNum) || priceNum <= 0) {
-      setErrorMsg('Product name and a valid selling price greater than zero are required.');
+    if (!name.trim() || isNaN(priceNum) || priceNum < 0) {
+      setErrorMsg('Product name and a valid non-negative selling price are required.');
       return;
     }
 

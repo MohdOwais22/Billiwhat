@@ -312,7 +312,11 @@ export function ReceivablesAgeingTab({ data }: ReceivablesAgeingTabProps) {
                                         {formatDate(inv.issueDate, 'short')}
                                       </td>
                                       <td className="py-2 px-3 text-slate-600">
-                                        {formatDate(inv.dueDate, 'short')}
+                                        {inv.dueDate ? (
+                                          formatDate(inv.dueDate, 'short')
+                                        ) : (
+                                          <span className="text-slate-400 italic">No due date set</span>
+                                        )}
                                       </td>
                                       <td className="py-2 px-3">
                                         {inv.daysOverdue > 0 ? (

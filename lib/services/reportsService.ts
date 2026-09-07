@@ -440,10 +440,12 @@ function computeReportsData({
     const balance = Math.max(0, Number(inv.total) - paid);
     if (balance > 0) {
       totalOutstanding += balance;
-      const due = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
-      due.setHours(0, 0, 0, 0);
-      if (due < today) {
-        totalOverdue += balance;
+      if (inv.due_date) {
+        const due = new Date(inv.due_date);
+        due.setHours(0, 0, 0, 0);
+        if (due < today) {
+          totalOverdue += balance;
+        }
       }
     }
   });
@@ -592,33 +594,50 @@ function computeReportsData({
     .filter((r) => r.itemCount > 0 || r.taxableAmount > 0)
     .sort((a, b) => a.taxRate - b.taxRate);
 
-  // Fallback: If no invoice items exist but invoices have tax, synthesize from invoices
+  // Fallback: If no invoice items exist but invoices have tax, group from actual invoice fields
   if (rateBreakdown.length === 0 && validPeriodInvoices.length > 0) {
-    if (totalTax > 0) {
-      rateBreakdown.push({
-        taxRate: 18,
-        itemCount: validPeriodInvoices.length,
-        taxableAmount: totalTaxable,
-        cgst: totalCGST,
-        sgst: totalSGST,
-        igst: totalIGST,
-        cess: totalCess,
-        totalTax: totalTax,
-        totalValue: totalSales,
-      });
-    } else {
-      rateBreakdown.push({
-        taxRate: 0,
-        itemCount: validPeriodInvoices.length,
-        taxableAmount: totalTaxable || totalSales,
+    const invRateMap = new Map<number, GstRateBreakdownItem>();
+    validPeriodInvoices.forEach((inv) => {
+      const taxable = Number(inv.taxable_amount) || 0;
+      const cgstVal = Number(inv.cgst) || 0;
+      const sgstVal = Number(inv.sgst) || 0;
+      const igstVal = Number(inv.igst) || 0;
+      const cessVal = Number(inv.cess) || 0;
+      const taxVal = cgstVal + sgstVal + igstVal + cessVal;
+      const totalVal = Number(inv.total) || (taxable + taxVal);
+
+      let calcRate = 0;
+      if (taxable > 0 && taxVal > 0) {
+        calcRate = Math.round((taxVal / taxable) * 100);
+      }
+
+      const existing = invRateMap.get(calcRate) || {
+        taxRate: calcRate,
+        itemCount: 0,
+        taxableAmount: 0,
         cgst: 0,
         sgst: 0,
         igst: 0,
         cess: 0,
         totalTax: 0,
-        totalValue: totalSales,
+        totalValue: 0,
+      };
+
+      invRateMap.set(calcRate, {
+        taxRate: calcRate,
+        itemCount: existing.itemCount + 1,
+        taxableAmount: existing.taxableAmount + taxable,
+        cgst: existing.cgst + cgstVal,
+        sgst: existing.sgst + sgstVal,
+        igst: existing.igst + igstVal,
+        cess: existing.cess + cessVal,
+        totalTax: existing.totalTax + taxVal,
+        totalValue: existing.totalValue + totalVal,
       });
-    }
+    });
+
+    invRateMap.forEach((val) => rateBreakdown.push(val));
+    rateBreakdown.sort((a, b) => a.taxRate - b.taxRate);
   }
 
   // 6. Sales Breakdowns (Daily, Weekly, Monthly)
@@ -963,11 +982,14 @@ function computeReceivablesAgeing(
 
     if (balance <= 0) return; // Completely paid invoice, skip from ageing debt
 
-    const due = inv.due_date ? new Date(inv.due_date) : new Date(inv.issue_date);
-    due.setHours(0, 0, 0, 0);
-    const diffTime = today.getTime() - due.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    const daysOverdue = diffDays > 0 ? diffDays : 0;
+    let daysOverdue = 0;
+    if (inv.due_date) {
+      const due = new Date(inv.due_date);
+      due.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - due.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      daysOverdue = diffDays > 0 ? diffDays : 0;
+    }
 
     let bucket: 'current' | '1-30' | '31-60' | '61-90' | '90+' = 'current';
 
@@ -1031,15 +1053,15 @@ function computeReceivablesAgeing(
       existing.overdueInvoicesCount += 1;
     }
 
-    if (!existing.oldestDueDate || (inv.due_date && inv.due_date < existing.oldestDueDate)) {
-      existing.oldestDueDate = inv.due_date || inv.issue_date;
+    if (inv.due_date && (!existing.oldestDueDate || inv.due_date < existing.oldestDueDate)) {
+      existing.oldestDueDate = inv.due_date;
     }
 
     existing.invoices.push({
       id: inv.id,
       invoiceNumber: inv.invoice_number,
       issueDate: inv.issue_date,
-      dueDate: inv.due_date || inv.issue_date,
+      dueDate: inv.due_date || null,
       total,
       amountPaid: paid,
       balanceDue: balance,

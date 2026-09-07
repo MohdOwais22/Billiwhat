@@ -25,6 +25,8 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
   const [creditDays, setCreditDays] = useState('');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -110,6 +112,7 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
     try {
       setIsSubmitting(true);
       setErrorMsg(null);
+      setDuplicateWarning(null);
 
       await addNewCustomer({
         name: trimmedName || trimmedBusiness,
@@ -124,12 +127,18 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
         creditDays: parsedCreditDays,
         notes: notes.trim() || null,
         isActive,
+        allowDuplicate,
       });
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to add customer. Please verify details.');
+      const msg = err?.message || 'Failed to add customer. Please verify details.';
+      if (msg.includes('already exists in your organization')) {
+        setDuplicateWarning(msg);
+      } else {
+        setErrorMsg(msg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -167,6 +176,28 @@ export function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModa
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[calc(100vh-180px)] overflow-y-auto">
+          {duplicateWarning && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1 font-medium">{duplicateWarning}</div>
+              </div>
+              <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-3">
+                <span className="text-[11px] text-amber-800">Do you still want to register a duplicate customer entry?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAllowDuplicate(true);
+                    setDuplicateWarning(null);
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded hover:bg-amber-700 transition cursor-pointer shrink-0"
+                >
+                  Allow & Proceed
+                </button>
+              </div>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />

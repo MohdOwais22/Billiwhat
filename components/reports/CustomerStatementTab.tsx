@@ -177,13 +177,13 @@ export function CustomerStatementTab({ data }: CustomerStatementTabProps) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                Opening Balance
+                Prior-Period Outstanding (B/F)
               </span>
               <span className="text-base font-black text-slate-900 mt-1 block">
                 {formatINR(statementData.openingBalance)}
               </span>
               <span className="text-[10px] text-slate-400 mt-0.5 block">
-                B/F prior to {formatDate(dateRange.startDate, 'short')}
+                Prior invoices minus payments before {formatDate(dateRange.startDate, 'short')}
               </span>
             </div>
 

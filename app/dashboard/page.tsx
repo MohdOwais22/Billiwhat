@@ -13,6 +13,7 @@ import { QuickInsights } from '@/components/dashboard/QuickInsights';
 import { DashboardSkeleton } from '@/components/common/LoadingSkeleton';
 import { ErrorState } from '@/components/common/ErrorState';
 import { ModulePlaceholder } from '@/components/placeholder/ModulePlaceholder';
+import { SettingsView } from '@/components/settings/SettingsView';
 import { useDashboard } from '@/context/DashboardContext';
 import { calculateDateRange } from '@/lib/services/dashboardService';
 
@@ -37,6 +38,14 @@ export default function DashboardPage() {
   } = useDashboard();
 
   const dateRange = calculateDateRange(period, customRange);
+
+  if (currentRoute === 'settings') {
+    return (
+      <SettingsView
+        onBackToDashboard={() => handleNavigate('dashboard')}
+      />
+    );
+  }
 
   if (currentRoute !== 'dashboard') {
     return (

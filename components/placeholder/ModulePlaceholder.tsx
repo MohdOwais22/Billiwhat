@@ -79,16 +79,16 @@ const MODULE_CONFIG: Record<
     features: ['GSTR-1 Ready JSON & Excel', 'Party Account Statements with UPI QR', 'Salesman Performance Matrix'],
   },
   whatsapp_ai: {
-    title: 'WhatsApp AI Agent & Workflows',
-    description: 'Conversational ledger balance bot, auto-payment reminders, and WhatsApp voice billing.',
+    title: 'WhatsApp AI Workflows',
+    description: 'Conversational ledger balance, auto-payment reminders, and WhatsApp billing.',
     icon: BotMessageSquare,
-    features: ['Two-way Customer Balance Queries', 'Automated Daily Morning Collection Queue', 'Payment Receipt Verification'],
+    features: ['Customer Balance Inquiries', 'Daily Collection Queue', 'Payment Receipt Confirmations'],
   },
   settings: {
-    title: 'Organization & Compliance Settings',
-    description: 'Manage GST profiles, WhatsApp Business API webhooks, and team access roles.',
+    title: 'Settings & Business Profile',
+    description: 'Manage business identity, GST profile, team roles, and system preferences.',
     icon: Settings,
-    features: ['Multi-Branch GST Profiles', 'Supabase Database Connection', 'Staff Permissions & Audit Logs'],
+    features: ['Business Details & Addresses', 'GSTIN & Tax Profiles', 'Team Role Permissions'],
   },
 };
 
@@ -117,9 +117,6 @@ export function ModulePlaceholder({ route, onBackToDashboard }: ModulePlaceholde
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900">{config.title}</h2>
-              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                Module Shell
-              </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">{config.description}</p>
           </div>
@@ -127,7 +124,7 @@ export function ModulePlaceholder({ route, onBackToDashboard }: ModulePlaceholde
 
         <div className="mt-6 pt-6 border-t border-slate-100">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-            Integrated Features Scheduled for this Module:
+            Available Operations:
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {config.features.map((feat, idx) => (

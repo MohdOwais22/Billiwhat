@@ -201,20 +201,9 @@ export function Sidebar({
 
       {/* Footer Status */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/40 text-[11px] text-slate-400 space-y-2">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Audit-Ready Ledger</span>
-          </div>
-          <span className="text-[10px] text-slate-500">v3.0</span>
-        </div>
-        <div className="px-2 py-1 rounded bg-slate-900/90 text-[10px] text-slate-400 border border-slate-800 flex items-center justify-between">
-          <span>WhatsApp Messaging</span>
-          <span className="text-emerald-400 font-semibold">Connected</span>
-        </div>
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-md transition font-medium cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-2.5 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-md transition font-medium cursor-pointer"
           id="sidebar-signout-btn"
         >
           <LogOut className="w-3.5 h-3.5" />

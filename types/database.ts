@@ -276,3 +276,47 @@ export type DashboardData = {
   isAuthenticated?: boolean;
   hasOrganization?: boolean;
 };
+
+export type TeamMemberDetails = OrganizationMember & {
+  display_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  is_current_user?: boolean;
+};
+
+export type SubscriptionPlan = 'free' | 'growth' | 'enterprise';
+
+export type SubscriptionInfo = {
+  id?: string;
+  plan: SubscriptionPlan;
+  plan_name: string;
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
+  billing_cycle: 'monthly' | 'yearly';
+  current_period_end?: string | null;
+  max_invoices_per_month: number;
+  max_team_members: number;
+  current_invoice_count: number;
+  current_member_count: number;
+};
+
+export type SettingsData = {
+  organization: Organization;
+  gstProfile?: GstProfile | null;
+  userProfile?: UserProfile | null;
+  currentUser: {
+    id: string;
+    email?: string | null;
+    phone?: string | null;
+    role: OrganizationMember['role'];
+  };
+  members: TeamMemberDetails[];
+  subscription: SubscriptionInfo;
+  whatsappConfig?: {
+    is_connected: boolean;
+    phone_number?: string | null;
+    phone_number_id?: string | null;
+    waba_id?: string | null;
+    webhook_url?: string | null;
+    webhook_verified: boolean;
+  };
+};

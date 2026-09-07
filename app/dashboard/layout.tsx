@@ -71,7 +71,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         />
 
         {/* Tab Route Content - Independent scroll container */}
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-slate-50" id="main-content-scrollable">
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-slate-50 pb-12 sm:pb-16" id="main-content-scrollable">
           {children}
         </main>
       </div>
@@ -115,6 +115,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         }}
         customers={dashboardData?.customers || []}
         products={dashboardData?.products || []}
+        organization={organization}
+        gstProfile={gstProfile}
+        onOpenAddCustomer={() => {
+          setIsCreateInvoiceOpen(false);
+          setIsAddCustomerOpen(true);
+        }}
+        onOpenAddProduct={() => {
+          setIsCreateInvoiceOpen(false);
+          setIsAddProductOpen(true);
+        }}
       />
 
       <AddCustomerModal

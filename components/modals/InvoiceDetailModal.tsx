@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, ReceiptText, Phone, CreditCard, Send, Clock } from 'lucide-react';
+import { X, ReceiptText, Phone, CreditCard, Send, Clock, Printer } from 'lucide-react';
 import { InvoiceWithDetails, Payment } from '@/types/database';
 import { formatDate, formatINR, getInvoiceStatusConfig, getPaymentMethodConfig } from '@/lib/utils/formatters';
 import { getInvoicePaymentHistory } from '@/lib/services/dashboardService';
@@ -13,6 +13,7 @@ interface InvoiceDetailModalProps {
   onClose: () => void;
   onRecordPayment: (invoice: InvoiceWithDetails) => void;
   onSendWhatsAppReminder: (invoice: InvoiceWithDetails) => void;
+  onPrint?: (invoice: InvoiceWithDetails) => void;
 }
 
 export function InvoiceDetailModal({
@@ -21,6 +22,7 @@ export function InvoiceDetailModal({
   onClose,
   onRecordPayment,
   onSendWhatsAppReminder,
+  onPrint,
 }: InvoiceDetailModalProps) {
   const [history, setHistory] = useState<{
     payments: Payment[];
@@ -228,12 +230,27 @@ export function InvoiceDetailModal({
           </button>
 
           <div className="flex items-center gap-2">
+            {onPrint && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onPrint(invoice);
+                }}
+                className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                id="invoice-modal-print-btn"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-600" />
+                <span>Print / PDF</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 onClose();
                 onSendWhatsAppReminder(invoice);
               }}
-              className="px-3.5 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
               id="invoice-modal-whatsapp-btn"
             >
               <Send className="w-3.5 h-3.5" />

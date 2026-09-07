@@ -309,21 +309,21 @@ export function GstTaxSection({
         </div>
 
         {canEdit && (
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+          <div className="pt-6 pb-2 border-t border-slate-100 flex items-center justify-end">
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-900/10 transition disabled:opacity-50 cursor-pointer"
               id="save-gst-settings-btn"
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Updating GST Profile...</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-4 h-4" />
                   <span>Save GST Settings</span>
                 </>
               )}

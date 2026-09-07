@@ -14,6 +14,7 @@ import { DashboardSkeleton } from '@/components/common/LoadingSkeleton';
 import { ErrorState } from '@/components/common/ErrorState';
 import { ModulePlaceholder } from '@/components/placeholder/ModulePlaceholder';
 import { SettingsView } from '@/components/settings/SettingsView';
+import { InvoicesPage } from '@/components/invoices/InvoicesPage';
 import { useDashboard } from '@/context/DashboardContext';
 import { calculateDateRange } from '@/lib/services/dashboardService';
 
@@ -44,6 +45,14 @@ export default function DashboardPage() {
       <SettingsView
         onBackToDashboard={() => handleNavigate('dashboard')}
       />
+    );
+  }
+
+  if (currentRoute === 'sales') {
+    return (
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto" id="invoices-sales-view-wrapper">
+        <InvoicesPage />
+      </div>
     );
   }
 

@@ -327,3 +327,88 @@ export function getTimeOfDayGreeting(): string {
     return 'Good evening';
   }
 }
+
+export function numberToINRWords(amount: number): string {
+  if (amount === null || amount === undefined || isNaN(amount) || amount === 0) {
+    return 'Rupees Zero Only';
+  }
+
+  const units = [
+    '',
+    'One',
+    'Two',
+    'Three',
+    'Four',
+    'Five',
+    'Six',
+    'Seven',
+    'Eight',
+    'Nine',
+    'Ten',
+    'Eleven',
+    'Twelve',
+    'Thirteen',
+    'Fourteen',
+    'Fifteen',
+    'Sixteen',
+    'Seventeen',
+    'Eighteen',
+    'Nineteen',
+  ];
+
+  const tens = [
+    '',
+    '',
+    'Twenty',
+    'Thirty',
+    'Forty',
+    'Fifty',
+    'Sixty',
+    'Seventy',
+    'Eighty',
+    'Ninety',
+  ];
+
+  function convertLessThanThousand(n: number): string {
+    let str = '';
+    if (n >= 100) {
+      str += units[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n >= 20) {
+      str += tens[Math.floor(n / 10)] + ' ';
+      n %= 10;
+    }
+    if (n > 0) {
+      str += units[n] + ' ';
+    }
+    return str.trim();
+  }
+
+  const intPart = Math.floor(Math.abs(amount));
+  const decimalPart = Math.round((Math.abs(amount) - intPart) * 100);
+
+  const crore = Math.floor(intPart / 10000000);
+  let remainder = intPart % 10000000;
+  const lakh = Math.floor(remainder / 100000);
+  remainder = remainder % 100000;
+  const thousand = Math.floor(remainder / 1000);
+  remainder = remainder % 1000;
+  const hundreds = remainder;
+
+  let words = '';
+  if (crore > 0) words += convertLessThanThousand(crore) + ' Crore ';
+  if (lakh > 0) words += convertLessThanThousand(lakh) + ' Lakh ';
+  if (thousand > 0) words += convertLessThanThousand(thousand) + ' Thousand ';
+  if (hundreds > 0) words += convertLessThanThousand(hundreds) + ' ';
+
+  words = words.trim();
+  if (!words) words = 'Zero';
+
+  let result = `Rupees ${words}`;
+  if (decimalPart > 0) {
+    result += ` and ${convertLessThanThousand(decimalPart)} Paise`;
+  }
+  result += ' Only';
+  return result;
+}

@@ -157,7 +157,7 @@ export function BusinessSection({
         {saveStatus === 'success' && (
           <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Business profile details saved successfully to Supabase database.</span>
+            <span>Business profile details saved successfully.</span>
           </div>
         )}
 
@@ -408,21 +408,21 @@ export function BusinessSection({
         </div>
 
         {canEdit && (
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+          <div className="pt-6 pb-2 border-t border-slate-100 flex items-center justify-end">
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-900/10 transition disabled:opacity-50 cursor-pointer"
               id="save-business-settings-btn"
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Saving Changes...</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-4 h-4" />
                   <span>Save Business Details</span>
                 </>
               )}

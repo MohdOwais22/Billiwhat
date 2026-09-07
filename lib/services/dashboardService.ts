@@ -9,6 +9,7 @@ import {
   DateRange,
   GstProfile,
   Invoice,
+  InvoiceStatus,
   InvoiceWithDetails,
   Organization,
   Payment,
@@ -553,6 +554,121 @@ export async function addNewProduct(params: {
 }
 
 /**
+ * Fetches the next sequential invoice number preview for the current organization
+ */
+export async function getNextSequentialInvoiceNumber(): Promise<string> {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+  if (!authData?.user) return 'INV-0001';
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) return 'INV-0001';
+
+  const { data: orgData } = await client
+    .from('organizations')
+    .select('invoice_prefix, invoice_sequence')
+    .eq('id', memberData.organization_id)
+    .single();
+
+  const prefix = orgData?.invoice_prefix || 'INV';
+  const nextSeq = (orgData?.invoice_sequence ?? 0) + 1;
+  return `${prefix}-${String(nextSeq).padStart(4, '0')}`;
+}
+
+/**
+ * Fetches line items for a specific invoice from Supabase
+ */
+export async function fetchInvoiceItems(invoiceId: string): Promise<any[]> {
+  const client = createBrowserClient();
+  const { data, error } = await client
+    .from('invoice_items')
+    .select('*')
+    .eq('invoice_id', invoiceId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching invoice line items:', error);
+    return [];
+  }
+  return data || [];
+}
+
+/**
+ * Updates an invoice's status in Supabase
+ */
+export async function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+  if (!authData?.user) throw new Error('Please sign in to update invoice.');
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) throw new Error('No active organization found.');
+
+  const { data, error } = await client
+    .from('invoices')
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', invoiceId)
+    .eq('organization_id', memberData.organization_id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Cancels an invoice in Supabase
+ */
+export async function cancelInvoice(invoiceId: string) {
+  return updateInvoiceStatus(invoiceId, 'cancelled');
+}
+
+/**
+ * Deletes a draft or cancelled invoice and its line items in Supabase
+ */
+export async function deleteInvoice(invoiceId: string) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+  if (!authData?.user) throw new Error('Please sign in to delete invoice.');
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) throw new Error('No active organization found.');
+
+  // Delete line items first
+  await client
+    .from('invoice_items')
+    .delete()
+    .eq('invoice_id', invoiceId);
+
+  const { error } = await client
+    .from('invoices')
+    .delete()
+    .eq('id', invoiceId)
+    .eq('organization_id', memberData.organization_id);
+
+  if (error) throw error;
+  return true;
+}
+
+/**
  * Creates a new B2B invoice in Supabase
  */
 export async function createNewInvoice(params: {
@@ -561,27 +677,43 @@ export async function createNewInvoice(params: {
   invoiceDate?: string;
   dueDate: string;
   invoiceNumber?: string;
+  invoiceType?: string;
+  status?: InvoiceStatus;
+  placeOfSupply?: string;
   subtotal?: number;
-  taxTotal?: number;
+  discountTotal?: number;
+  taxableAmount?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  cess?: number;
   totalAmount?: number;
   items?: Array<{
     productId?: string;
     productName: string;
     quantity: number;
     unitPrice: number;
+    discount?: number;
     gstRate?: number;
     taxRate?: number;
     unit?: string;
     hsnSac?: string;
     hsnCode?: string;
+    taxableAmount?: number;
+    cgst?: number;
+    sgst?: number;
+    igst?: number;
+    cess?: number;
+    lineTotal?: number;
   }>;
   notes?: string;
+  terms?: string;
 }) {
   const client = createBrowserClient();
   const { data: authData } = await client.auth.getUser();
 
   if (!authData?.user) {
-    throw new Error('Please sign in to your Supabase account to issue an invoice.');
+    throw new Error('Please sign in to your account to issue an invoice.');
   }
 
   const { data: memberData } = await client
@@ -594,33 +726,88 @@ export async function createNewInvoice(params: {
     throw new Error('No organization found for current user session.');
   }
 
-  let subtotal = params.subtotal || 0;
-  let taxTotal = params.taxTotal || 0;
+  const orgId = memberData.organization_id;
 
+  // Retrieve customer for place of supply validation if needed
+  const { data: customer } = await client
+    .from('customers')
+    .select('id, name, billing_address, gstin')
+    .eq('id', params.customerId)
+    .eq('organization_id', orgId)
+    .single();
+
+  // Retrieve organization for state code comparison
+  const { data: orgData } = await client
+    .from('organizations')
+    .select('invoice_prefix, invoice_sequence, state_code, state')
+    .eq('id', orgId)
+    .single();
+
+  let subtotal = params.subtotal ?? 0;
+  let discountTotal = params.discountTotal ?? 0;
+  let taxableAmount = params.taxableAmount ?? (subtotal - discountTotal);
+  let cgst = params.cgst ?? 0;
+  let sgst = params.sgst ?? 0;
+  let igst = params.igst ?? 0;
+  let cess = params.cess ?? 0;
+  let totalAmount = params.totalAmount;
+
+  // Calculate deterministically from items if items are provided
   if (params.items && params.items.length > 0) {
-    subtotal = 0;
-    taxTotal = 0;
+    let computedSubtotal = 0;
+    let computedDiscount = 0;
+    let computedTaxable = 0;
+    let computedCgst = 0;
+    let computedSgst = 0;
+    let computedIgst = 0;
+    let computedCess = 0;
+
     params.items.forEach((item) => {
-      const itemTaxRate = item.taxRate ?? item.gstRate ?? 18;
+      const rate = item.taxRate ?? item.gstRate ?? 18;
       const itemSubtotal = item.quantity * item.unitPrice;
-      const itemTax = (itemSubtotal * itemTaxRate) / 100;
-      subtotal += itemSubtotal;
-      taxTotal += itemTax;
+      const itemDisc = item.discount ?? 0;
+      const itemTaxable = item.taxableAmount ?? Math.max(0, itemSubtotal - itemDisc);
+
+      computedSubtotal += itemSubtotal;
+      computedDiscount += itemDisc;
+      computedTaxable += itemTaxable;
+
+      if (item.cgst !== undefined && item.sgst !== undefined) {
+        computedCgst += item.cgst;
+        computedSgst += item.sgst;
+        computedIgst += item.igst ?? 0;
+      } else if (item.igst !== undefined && item.igst > 0) {
+        computedIgst += item.igst;
+      } else {
+        // Fallback deterministic tax calculation
+        const itemTax = (itemTaxable * rate) / 100;
+        computedCgst += itemTax / 2;
+        computedSgst += itemTax / 2;
+      }
+
+      computedCess += item.cess ?? 0;
     });
+
+    subtotal = computedSubtotal;
+    discountTotal = computedDiscount;
+    taxableAmount = computedTaxable;
+    cgst = params.cgst ?? Math.round(computedCgst * 100) / 100;
+    sgst = params.sgst ?? Math.round(computedSgst * 100) / 100;
+    igst = params.igst ?? Math.round(computedIgst * 100) / 100;
+    cess = params.cess ?? Math.round(computedCess * 100) / 100;
+
+    if (totalAmount === undefined) {
+      totalAmount = Math.round(taxableAmount + cgst + sgst + igst + cess);
+    }
   }
 
-  const total = params.totalAmount || (subtotal + taxTotal);
+  const finalTotal = totalAmount ?? Math.round(taxableAmount + cgst + sgst + igst + cess);
   const issueDate = params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0];
+  const invoiceStatus = params.status || 'issued';
 
   let invNumber = params.invoiceNumber?.trim();
   if (!invNumber) {
-    // Concurrency-safe sequential invoice numbering using optimistic concurrency control on organizations
-    const { data: orgData } = await client
-      .from('organizations')
-      .select('invoice_prefix, invoice_sequence')
-      .eq('id', memberData.organization_id)
-      .single();
-
+    // Concurrency-safe sequential invoice numbering
     const prefix = orgData?.invoice_prefix || 'INV';
     let currentSeq = orgData?.invoice_sequence ?? 0;
 
@@ -629,7 +816,7 @@ export async function createNewInvoice(params: {
       const { data: updatedOrg } = await client
         .from('organizations')
         .update({ invoice_sequence: nextSeq, updated_at: new Date().toISOString() })
-        .eq('id', memberData.organization_id)
+        .eq('id', orgId)
         .eq('invoice_sequence', currentSeq)
         .select('invoice_sequence')
         .maybeSingle();
@@ -643,7 +830,7 @@ export async function createNewInvoice(params: {
       const { data: refOrg } = await client
         .from('organizations')
         .select('invoice_sequence')
-        .eq('id', memberData.organization_id)
+        .eq('id', orgId)
         .single();
       currentSeq = refOrg?.invoice_sequence ?? (currentSeq + 1);
     }
@@ -653,37 +840,60 @@ export async function createNewInvoice(params: {
     }
   }
 
-  const halfTax = Math.round(taxTotal / 2);
-
-  const { data: invoice, error: invError } = await client.from('invoices').insert({
-    organization_id: memberData.organization_id,
-    customer_id: params.customerId,
-    invoice_number: invNumber,
-    invoice_type: 'tax_invoice',
-    status: 'issued',
-    issue_date: issueDate,
-    due_date: params.dueDate,
-    subtotal,
-    discount_total: 0,
-    taxable_amount: subtotal,
-    cgst: halfTax,
-    sgst: halfTax,
-    igst: 0,
-    cess: 0,
-    total,
-    source: 'web',
-    created_by: authData.user.id,
-    notes: params.notes || null,
-  }).select().single();
+  const { data: invoice, error: invError } = await client
+    .from('invoices')
+    .insert({
+      organization_id: orgId,
+      customer_id: params.customerId,
+      invoice_number: invNumber,
+      invoice_type: params.invoiceType || 'tax_invoice',
+      status: invoiceStatus,
+      issue_date: issueDate,
+      due_date: params.dueDate,
+      subtotal,
+      discount_total: discountTotal,
+      taxable_amount: taxableAmount,
+      cgst,
+      sgst,
+      igst,
+      cess,
+      total: finalTotal,
+      place_of_supply: params.placeOfSupply || null,
+      notes: params.notes || null,
+      terms: params.terms || null,
+      source: 'web',
+      created_by: authData.user.id,
+    })
+    .select()
+    .single();
 
   if (invError) throw invError;
 
   if (params.items && params.items.length > 0) {
     const lineItems = params.items.map((item, idx) => {
       const itemTaxRate = item.taxRate ?? item.gstRate ?? 18;
-      const itemTaxable = item.quantity * item.unitPrice;
-      const itemTax = (itemTaxable * itemTaxRate) / 100;
-      const itemHalfTax = Math.round(itemTax / 2);
+      const itemSub = item.quantity * item.unitPrice;
+      const itemDisc = item.discount ?? 0;
+      const itemTaxable = item.taxableAmount ?? Math.max(0, itemSub - itemDisc);
+
+      let itemCgst = item.cgst;
+      let itemSgst = item.sgst;
+      let itemIgst = item.igst ?? 0;
+      let itemCess = item.cess ?? 0;
+
+      if (itemCgst === undefined || itemSgst === undefined) {
+        if (itemIgst > 0) {
+          itemCgst = 0;
+          itemSgst = 0;
+        } else {
+          const itemTax = (itemTaxable * itemTaxRate) / 100;
+          itemCgst = Math.round((itemTax / 2) * 100) / 100;
+          itemSgst = Math.round((itemTax / 2) * 100) / 100;
+        }
+      }
+
+      const lineTot = item.lineTotal ?? Math.round(itemTaxable + (itemCgst || 0) + (itemSgst || 0) + itemIgst + itemCess);
+
       return {
         invoice_id: invoice.id,
         product_id: item.productId || null,
@@ -692,14 +902,14 @@ export async function createNewInvoice(params: {
         quantity: item.quantity,
         unit: item.unit || 'PCS',
         unit_price: item.unitPrice,
-        discount: 0,
+        discount: itemDisc,
         taxable_amount: itemTaxable,
         tax_rate: itemTaxRate,
-        cgst: itemHalfTax,
-        sgst: itemHalfTax,
-        igst: 0,
-        cess: 0,
-        line_total: Math.round(itemTaxable + itemTax),
+        cgst: itemCgst || 0,
+        sgst: itemSgst || 0,
+        igst: itemIgst,
+        cess: itemCess,
+        line_total: lineTot,
         sort_order: idx,
       };
     });

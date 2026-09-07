@@ -9,7 +9,7 @@ interface ErrorStateProps {
 
 export function ErrorState({
   title = 'Something went wrong',
-  message = 'Failed to fetch data from Supabase. Please check your network connection or try again.',
+  message = 'Failed to fetch records. Please check your network connection or try again.',
   onRetry,
 }: ErrorStateProps) {
   return (

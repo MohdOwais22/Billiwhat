@@ -367,7 +367,7 @@ export function CreateInvoiceModal({
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Customer Selection */}
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-700">
                     Billed Customer / Firm *
@@ -406,7 +406,7 @@ export function CreateInvoiceModal({
               </div>
 
               {/* Invoice Number */}
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Invoice Number
                 </label>
@@ -426,7 +426,7 @@ export function CreateInvoiceModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Invoice Date */}
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Invoice Date *
                 </label>
@@ -441,7 +441,7 @@ export function CreateInvoiceModal({
               </div>
 
               {/* Due Date */}
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Due Date *
                 </label>
@@ -456,7 +456,7 @@ export function CreateInvoiceModal({
               </div>
 
               {/* Place of Supply */}
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Place of Supply (GST State) *
                 </label>

@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
+:root {
+  --spacing: 0.25rem;
+}
+
 @layer base {
+  *, ::before, ::after {
+    box-sizing: border-box;
+  }
+
   html, body {
     height: 100%;
     margin: 0;
@@ -18,3 +26,4 @@
     }
   }
 }
+

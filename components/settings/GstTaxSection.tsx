@@ -151,7 +151,7 @@ export function GstTaxSection({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="gst-gstin-input">
               GST Identification Number (GSTIN)
             </label>
@@ -168,7 +168,7 @@ export function GstTaxSection({
             <p className="text-[11px] text-slate-400 mt-1">State code is automatically derived from the first 2 digits.</p>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="gst-reg-type-select">
               GST Registration Type
             </label>
@@ -187,7 +187,7 @@ export function GstTaxSection({
             </select>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="gst-legal-name-input">
               Legal Name (As on GST Portal)
             </label>
@@ -202,7 +202,7 @@ export function GstTaxSection({
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="gst-trade-name-input">
               Trade Name / Brand Name
             </label>
@@ -217,7 +217,7 @@ export function GstTaxSection({
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="gst-state-code-select">
               State Code (GST Jurisdiction)
             </label>
@@ -236,7 +236,7 @@ export function GstTaxSection({
             </select>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="gst-place-of-supply-input">
               Default Place of Supply
             </label>

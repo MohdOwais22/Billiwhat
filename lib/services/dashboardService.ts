@@ -456,12 +456,13 @@ export async function addNewCustomer(params: {
   creditDays?: number;
   paymentTermsDays?: number;
   notes?: string;
+  isActive?: boolean;
 }) {
   const client = createBrowserClient();
   const { data: authData } = await client.auth.getUser();
 
   if (!authData?.user) {
-    throw new Error('Please sign in to your Supabase account to add a customer.');
+    throw new Error('Please sign in to your account to add a customer.');
   }
 
   const { data: memberData } = await client
@@ -487,11 +488,135 @@ export async function addNewCustomer(params: {
     credit_limit: params.creditLimit ?? 0,
     credit_days: params.creditDays ?? params.paymentTermsDays ?? 0,
     notes: params.notes?.trim() || null,
-    is_active: true,
+    is_active: params.isActive !== undefined ? params.isActive : true,
   }).select().single();
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Updates an existing customer profile in Supabase
+ */
+export async function updateCustomer(
+  customerId: string,
+  params: {
+    name: string;
+    businessName?: string | null;
+    phone: string;
+    whatsappPhone?: string | null;
+    email?: string | null;
+    gstin?: string | null;
+    billingAddress?: string;
+    shippingAddress?: string | null;
+    creditLimit?: number;
+    creditDays?: number;
+    notes?: string | null;
+    isActive?: boolean;
+  }
+) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+
+  if (!authData?.user) {
+    throw new Error('Please sign in to your account to update customer details.');
+  }
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) {
+    throw new Error('No organization found for current user session.');
+  }
+
+  const payload: any = {
+    name: params.name.trim(),
+    business_name: params.businessName !== undefined ? (params.businessName?.trim() || null) : undefined,
+    phone: params.phone.trim(),
+    whatsapp_phone: params.whatsappPhone !== undefined ? (params.whatsappPhone?.trim() || null) : undefined,
+    email: params.email !== undefined ? (params.email?.trim() || null) : undefined,
+    gstin: params.gstin !== undefined ? (params.gstin?.trim().toUpperCase() || null) : undefined,
+    billing_address: params.billingAddress !== undefined ? (params.billingAddress?.trim() || 'N/A') : undefined,
+    shipping_address: params.shippingAddress !== undefined ? (params.shippingAddress?.trim() || null) : undefined,
+    credit_limit: params.creditLimit !== undefined ? Number(params.creditLimit) : undefined,
+    credit_days: params.creditDays !== undefined ? Number(params.creditDays) : undefined,
+    notes: params.notes !== undefined ? (params.notes?.trim() || null) : undefined,
+  };
+
+  if (params.isActive !== undefined) {
+    payload.is_active = params.isActive;
+  }
+
+  // Clean undefined keys
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) {
+      delete payload[key];
+    }
+  });
+
+  const { data, error } = await client
+    .from('customers')
+    .update(payload)
+    .eq('id', customerId)
+    .eq('organization_id', memberData.organization_id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Safely deletes or archives a customer record based on invoice associations
+ */
+export async function deleteCustomer(customerId: string) {
+  const client = createBrowserClient();
+  const { data: authData } = await client.auth.getUser();
+
+  if (!authData?.user) {
+    throw new Error('Please sign in to delete a customer.');
+  }
+
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id, role')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (!memberData?.organization_id) {
+    throw new Error('No organization found for current user session.');
+  }
+
+  // Check if customer has associated invoices
+  const { count, error: countError } = await client
+    .from('invoices')
+    .select('*', { count: 'exact', head: true })
+    .eq('customer_id', customerId)
+    .eq('organization_id', memberData.organization_id);
+
+  if (count && count > 0) {
+    // If has invoices, mark as inactive to preserve GST financial audit trail
+    const { error: updateError } = await client
+      .from('customers')
+      .update({ is_active: false })
+      .eq('id', customerId)
+      .eq('organization_id', memberData.organization_id);
+
+    if (updateError) throw updateError;
+    return { archived: true, message: 'Customer has associated invoices and has been marked Inactive to preserve financial audit trail.' };
+  }
+
+  const { error } = await client
+    .from('customers')
+    .delete()
+    .eq('id', customerId)
+    .eq('organization_id', memberData.organization_id);
+
+  if (error) throw error;
+  return { deleted: true, message: 'Customer record successfully deleted.' };
 }
 
 /**

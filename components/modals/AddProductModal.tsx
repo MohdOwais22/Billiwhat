@@ -115,7 +115,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 SKU / Code <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
@@ -128,7 +128,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 HSN / SAC Code <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
@@ -144,7 +144,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Selling Price (₹) *
               </label>
@@ -161,7 +161,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Measurement Unit
               </label>
@@ -182,7 +182,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Opening Stock <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
@@ -197,7 +197,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Low Stock Alert (Min) <span className="text-slate-400 font-normal">(Optional)</span>
               </label>

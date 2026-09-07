@@ -172,7 +172,7 @@ export function BusinessSection({
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Entity Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="business-name-input">
                 Business / Trading Name <span className="text-rose-500">*</span>
               </label>
@@ -189,7 +189,7 @@ export function BusinessSection({
               <p className="text-[11px] text-slate-400 mt-1">Appears on invoice headers, receipts, and WhatsApp message headers.</p>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="legal-name-input">
                 Legal Registered Name
               </label>
@@ -205,7 +205,7 @@ export function BusinessSection({
               <p className="text-[11px] text-slate-400 mt-1">Full legal name matching your GST registration certificate.</p>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="business-gstin-input">
                 GSTIN (Goods & Services Tax Identifier)
               </label>
@@ -222,7 +222,7 @@ export function BusinessSection({
               <p className="text-[11px] text-slate-400 mt-1">15-character statutory GST identification number.</p>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="business-prefix-input">
                 Default Invoice Prefix
               </label>
@@ -245,7 +245,7 @@ export function BusinessSection({
         <div className="pt-4 border-t border-slate-100">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Official Contact</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="business-phone-input">
                 Official Business Phone / WhatsApp
               </label>
@@ -260,7 +260,7 @@ export function BusinessSection({
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="business-email-input">
                 Official Billing Email
               </label>
@@ -312,7 +312,7 @@ export function BusinessSection({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="city-input">
                   City / District
                 </label>
@@ -327,7 +327,7 @@ export function BusinessSection({
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="state-select">
                   State / UT
                 </label>
@@ -347,7 +347,7 @@ export function BusinessSection({
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="pincode-input">
                   Pincode
                 </label>

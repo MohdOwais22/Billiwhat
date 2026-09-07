@@ -120,7 +120,7 @@ export function InvoiceSection({
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Numbering Sequence</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="inv-prefix-input">
                 Invoice Series Prefix
               </label>
@@ -136,7 +136,7 @@ export function InvoiceSection({
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="inv-sequence-input">
                 Next Invoice Counter Sequence
               </label>
@@ -151,7 +151,7 @@ export function InvoiceSection({
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Generated Number Preview
               </label>

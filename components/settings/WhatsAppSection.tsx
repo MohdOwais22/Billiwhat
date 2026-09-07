@@ -162,7 +162,7 @@ export function WhatsAppSection({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="wa-phone-id">
                 Phone Number ID
               </label>
@@ -177,7 +177,7 @@ export function WhatsAppSection({
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="wa-waba-id">
                 WhatsApp Business Account ID (WABA ID)
               </label>
@@ -192,7 +192,7 @@ export function WhatsAppSection({
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="min-w-0 sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="wa-token">
                 System User Permanent Access Token
               </label>

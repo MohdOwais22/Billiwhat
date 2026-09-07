@@ -111,7 +111,7 @@ export function AccountSection({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="user-display-name">
                 Your Full Name / Display Name
               </label>
@@ -126,7 +126,7 @@ export function AccountSection({
               <p className="text-[11px] text-slate-400 mt-1">Appears next to notes, reminders, and payment receipts.</p>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Assigned Organization Role
               </label>
@@ -136,7 +136,7 @@ export function AccountSection({
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Linked Email Address
               </label>
@@ -151,7 +151,7 @@ export function AccountSection({
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Linked Mobile Number
               </label>
@@ -166,7 +166,7 @@ export function AccountSection({
               </div>
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="min-w-0 sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 User Identifier (UUID)
               </label>

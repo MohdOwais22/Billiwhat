@@ -272,7 +272,7 @@ export function RecordPaymentModal({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Amount Received (₹) *
                 </label>
@@ -289,7 +289,7 @@ export function RecordPaymentModal({
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Payment Date *
                 </label>

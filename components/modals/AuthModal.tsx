@@ -230,6 +230,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     pattern="[0-9]{10}"
                     maxLength={10}
                     disabled={isLoading}
+                    autoFocus
                     placeholder="98765 43210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
@@ -271,6 +272,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     pattern="[0-9]{6}"
                     maxLength={6}
                     disabled={isLoading}
+                    autoFocus
                     placeholder="Enter 6-digit OTP"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}

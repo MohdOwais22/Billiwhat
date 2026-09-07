@@ -19,7 +19,6 @@ import { AboutSection } from './AboutSection';
 import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { MarketingFooter } from './MarketingFooter';
-import { StartTrialModal } from './StartTrialModal';
 import { AuthModal } from '@/components/modals/AuthModal';
 
 interface MarketingPageProps {
@@ -28,8 +27,6 @@ interface MarketingPageProps {
 
 export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
   const router = useRouter();
-  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('Business');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
@@ -66,11 +63,6 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
     }
   };
 
-  const handleOpenTrialModal = (plan = 'Business') => {
-    setSelectedPlan(plan);
-    setIsTrialModalOpen(true);
-  };
-
   const handleScrollToWorkflow = () => {
     const el = document.querySelector('#how-it-works');
     if (el) {
@@ -92,7 +84,7 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
       <main>
         {/* Section 1: Hero */}
         <HeroSection
-          onOpenApp={onOpenDashboard}
+          onOpenApp={handleStartFree}
           onOpenDemoModal={handleStartFree}
           onScrollToWorkflow={handleScrollToWorkflow}
         />
@@ -136,23 +128,15 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
         {/* Section 14: Final High-Conversion CTA */}
         <FinalCtaSection
           onStartFree={handleStartFree}
-          onTalkToUs={() => handleOpenTrialModal('Enterprise Walkthrough')}
-          onOpenApp={onOpenDashboard}
+          onTalkToUs={handleStartFree}
+          onOpenApp={handleStartFree}
         />
       </main>
 
       {/* Footer */}
       <MarketingFooter
-        onOpenApp={onOpenDashboard}
-        onOpenContact={() => handleOpenTrialModal('Contact Inquiry')}
-      />
-
-      {/* Interactive Consultation / Trial Activation Modal */}
-      <StartTrialModal
-        isOpen={isTrialModalOpen}
-        onClose={() => setIsTrialModalOpen(false)}
-        selectedPlan={selectedPlan}
-        onLaunchDashboard={onOpenDashboard}
+        onOpenApp={handleStartFree}
+        onOpenContact={handleStartFree}
       />
 
       {/* Unified Closeable Canonical WhatsApp OTP Authentication Modal */}

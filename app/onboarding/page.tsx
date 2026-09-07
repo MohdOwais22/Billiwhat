@@ -135,7 +135,7 @@ function OnboardingContent() {
             Set Up Your Organization
           </h1>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            You are authenticated via WhatsApp OTP. Create your trading company account to manage real invoices and receivables.
+            Welcome to WhatsBill. Enter your business name to get your WhatsApp-ready workspace configured in 30 seconds.
           </p>
         </div>
 

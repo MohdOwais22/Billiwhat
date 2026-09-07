@@ -34,10 +34,12 @@ interface ChatMessage {
 }
 
 const INITIAL_SUGGESTIONS = [
-  '20 switches for Sharma Electricals',
+  '20 Anchor switches for Sharma Electricals',
+  '20 switches and 10 bulbs for Sharma Electricals',
   'Show Sharma Electricals outstanding',
-  'Create payment reminder for Sharma Electricals',
-  'How much did we collect today?',
+  'Send a payment reminder to Sharma Electricals',
+  'How much is outstanding today?',
+  'What did Sharma Electricals pay last time?',
 ];
 
 export function PlaygroundModal({ isOpen, onClose, onOpenAuthModal }: PlaygroundModalProps) {

@@ -226,7 +226,31 @@ export async function POST(req: NextRequest) {
 
     // 3. Deterministic Intent Detection and Response Assembly
 
-    // Intent A: OUTSTANDING LOOKUP
+    // Intent A: OUTSTANDING LOOKUP / LAST PAYMENT QUERY
+    if (
+      lower.includes('last time') ||
+      lower.includes('last payment') ||
+      lower.includes('paid last') ||
+      lower.includes('what did') && lower.includes('pay')
+    ) {
+      const customer =
+        DEMO_CUSTOMERS.find((c) => lower.includes(c.name.toLowerCase().split(' ')[0])) || DEMO_CUSTOMERS[0];
+
+      return NextResponse.json({
+        status: 'success',
+        intent: 'OUTSTANDING',
+        data: {
+          customerName: customer.name,
+          outstandingAmount: customer.outstandingAmount,
+          overdueDays: customer.overdueDays,
+          avgPaymentDays: customer.avgPaymentDays,
+          lastPayment: customer.lastPayment,
+          phone: customer.phone,
+        },
+        message: `${customer.name} paid ₹${customer.lastPayment.amount.toLocaleString('en-IN')} via ${customer.lastPayment.method} (${customer.lastPayment.date}). Current outstanding balance is ₹${customer.outstandingAmount.toLocaleString('en-IN')}.`,
+      });
+    }
+
     if (
       lower.includes('outstanding') ||
       lower.includes('due') ||

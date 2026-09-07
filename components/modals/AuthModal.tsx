@@ -19,6 +19,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(
     !isSupabaseConfigured
       ? 'Supabase Authentication is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
@@ -39,6 +40,45 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  const handleDemoLogin = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsDemoLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/demo-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to authenticate demo account.');
+      }
+
+      setSuccessMsg('Demo session active! Loading workspace...');
+
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      setTimeout(() => {
+        onClose();
+        router.push(data.targetUrl || '/dashboard');
+        router.refresh();
+      }, 500);
+    } catch (err: any) {
+      console.error('Demo login failed:', err);
+      setErrorMsg(
+        err?.message ||
+          'Demo login unavailable. WhatsApp OTP requires an active Twilio/WhatsApp provider in Supabase.'
+      );
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
 
   const formatPhone = (input: string) => {
     const cleaned = input.replace(/\D/g, '');
@@ -190,17 +230,11 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
             {getBrandInitials()}
           </div>
           <h3 className="text-lg font-extrabold text-slate-900" id="auth-modal-title">
-            {step === 'phone' ? (
-              entryContext === 'login' ? 'Welcome back' :
-              entryContext === 'try' ? 'Try WhatsBill' :
-              'Start using WhatsBill'
-            ) : 'Enter Verification Code'}
+            {step === 'phone' ? 'Continue with WhatsApp' : 'Enter Verification Code'}
           </h3>
           <p className="text-xs text-slate-500 mt-1">
             {step === 'phone'
-              ? (entryContext === 'login'
-                  ? `Access your secure ${APP_NAME} web panel`
-                  : `Get instant access to your ${APP_NAME} live engine`)
+              ? 'Enter your WhatsApp mobile number to receive a one-time verification code'
               : 'Please enter the 6-digit WhatsApp OTP sent to your number'}
           </p>
         </div>
@@ -210,14 +244,14 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
           {errorMsg && (
             <div className="p-3 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs flex gap-2" id="auth-modal-error">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
+              <span className="leading-relaxed">{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
             <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-xs flex gap-2" id="auth-modal-success">
               <MessageSquare className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{successMsg}</span>
+              <span className="leading-relaxed">{successMsg}</span>
             </div>
           )}
 
@@ -236,12 +270,12 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
                     required
                     pattern="[0-9]{10}"
                     maxLength={10}
-                    disabled={isLoading}
+                    disabled={isLoading || isDemoLoading}
                     autoFocus
                     placeholder="98765 43210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-3 py-2 text-sm rounded-r-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition"
+                    className="w-full px-3 py-2.5 text-sm rounded-r-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition font-medium"
                     id="auth-modal-phone-input"
                   />
                 </div>
@@ -249,19 +283,53 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
 
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full py-3 px-4 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-600/50 transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isLoading || isDemoLoading}
+                className="w-full py-3 px-4 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 id="auth-modal-submit-phone"
               >
                 {isLoading ? (
-                  <span>Sending code...</span>
+                  <span>Sending WhatsApp OTP...</span>
                 ) : (
                   <>
-                    <span>Send Verification Code</span>
+                    <span>Continue with WhatsApp</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
+
+              {/* Explicit Demo Account Section for internal testing / demos */}
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="h-px bg-slate-100 flex-1" />
+                  <span className="px-2 font-medium uppercase tracking-wider text-[10px] text-slate-400">
+                    Testing & Demos
+                  </span>
+                  <span className="h-px bg-slate-100 flex-1" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDemoLogin}
+                  disabled={isLoading || isDemoLoading}
+                  className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  id="auth-modal-demo-login-btn"
+                >
+                  {isDemoLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Authenticating demo session...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Use Demo Account (Skip OTP)</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-[10px] text-slate-400 text-center leading-normal">
+                  Demo account for internal evaluation while WhatsApp OTP provider is configured.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">

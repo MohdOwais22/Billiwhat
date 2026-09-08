@@ -60,10 +60,10 @@ export function CookieConsent() {
         {/* Banner Description */}
         <div className="space-y-2">
           <p className="text-xs text-slate-300 leading-relaxed" id="cookie-consent-desc">
-            {APP_NAME} utilizes strictly essential first-party session cookies (set by Supabase) to authorize database queries and maintain login status. <strong>No non-essential tracking, marketing pixels, or analytical cookies are active.</strong>
+            WhatsBill uses strictly essential first-party session cookies required for authentication, secure sessions, and maintaining your login state. <strong>No non-essential tracking, marketing pixels, or analytical cookies are used.</strong>
           </p>
           <p className="text-[11px] text-slate-400 leading-normal">
-            We use browser local storage (localStorage) only to retain essential workspace configurations and preference indicators. Review our{' '}
+            WhatsBill may also use browser local storage for essential workspace configuration and preference settings. See our{' '}
             <a href="/cookies" className="underline text-emerald-400 hover:text-emerald-300 font-semibold transition">
               Cookie Policy
             </a>{' '}
@@ -71,7 +71,7 @@ export function CookieConsent() {
             <a href="/privacy" className="underline text-emerald-400 hover:text-emerald-300 font-semibold transition">
               Privacy Policy
             </a>{' '}
-            for complete, audited details.
+            for details.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ export function CookieConsent() {
             className="px-4 py-2 rounded-lg font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 transition shadow-md flex items-center gap-1 cursor-pointer"
             id="cookie-consent-acknowledge-btn"
           >
-            <span>Got It, Thanks</span>
+            <span>Got it</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

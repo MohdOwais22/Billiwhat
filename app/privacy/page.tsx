@@ -132,14 +132,13 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-600 space-y-3">
               <p>
-                <strong>A. HTTP Cookies:</strong> The only cookies set are first-party session management markers deployed by Supabase. These cookies use project-specific naming conventions prefixed with <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">sb-</code> (e.g., <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">sb-[project-ref]-auth-token</code>) and are required to authorize database queries.
+                <strong>A. HTTP Cookies:</strong> The only cookies set are strictly essential first-party session management markers (e.g. <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">sb-access-token / sb-refresh-token</code>) and are required to authorize database queries.
               </p>
               <p>
                 <strong>B. Browser Local Storage (localStorage):</strong> This is local browser storage and is not a cookie. It stores:
               </p>
               <ul className="list-disc list-inside pl-3 space-y-1">
                 <li><code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">whatsbill-privacy-acknowledged</code>: Remembers your privacy notice acknowledgment choice (holds only the indicator string "acknowledged").</li>
-                <li><code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">whatsbill-playground-state</code>: Stores temporary chat session logs inside the visual WhatsApp simulation drawer.</li>
               </ul>
               <p>
                 <strong>C. No Non-Essential Tracking:</strong> This application does not use, load, or integrate any non-essential analytics tracking, marketing cookies, custom behavioral tracking scripts, or advertising pixels (such as Google Analytics or Meta Pixel).

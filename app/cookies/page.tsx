@@ -95,7 +95,7 @@ export default function CookiePolicyPage() {
                     <td className="p-3 text-slate-500">Session / Persistent (up to 1 year)</td>
                   </tr>
                   <tr>
-                    <td className="p-3 font-mono font-semibold text-slate-900">whatsbill-privacy-acknowledged</td>
+                    <td className="p-3 font-mono font-semibold text-slate-900">whatsbill-cookie-consent-choice</td>
                     <td className="p-3 text-slate-500">LocalStorage (Browser)</td>
                     <td className="p-3">
                       <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold text-[10px]">
@@ -103,7 +103,7 @@ export default function CookiePolicyPage() {
                       </span>
                     </td>
                     <td className="p-3 text-slate-500">
-                      Remembers that you acknowledged our Privacy and Session Notice to prevent re-displaying the bottom banner.
+                      Saves your explicit cookie and privacy preferences (holds the value &quot;accepted&quot; or &quot;declined&quot;) to manage preference states and hide the consent banner.
                     </td>
                     <td className="p-3 text-slate-500">Persistent</td>
                   </tr>

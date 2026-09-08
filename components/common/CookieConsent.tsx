@@ -8,10 +8,9 @@ export function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Check if user has already acknowledged the privacy notice
-    // Stored in browser localStorage (local browser storage, not a cookie)
-    const acknowledged = localStorage.getItem('whatsbill-privacy-acknowledged');
-    if (!acknowledged) {
+    // Check if user has already selected their cookie consent choice
+    const choice = localStorage.getItem('whatsbill-cookie-consent-choice');
+    if (!choice) {
       // Delay visibility slightly for clean entry transition
       const timer = setTimeout(() => {
         setIsVisible(true);
@@ -20,9 +19,15 @@ export function CookieConsent() {
     }
   }, []);
 
-  const handleAcknowledge = () => {
-    // Persist user acknowledgement indicator in browser storage
-    localStorage.setItem('whatsbill-privacy-acknowledged', 'acknowledged');
+  const handleAccept = () => {
+    // Persist accepted choice in browser local storage
+    localStorage.setItem('whatsbill-cookie-consent-choice', 'accepted');
+    setIsVisible(false);
+  };
+
+  const handleDecline = () => {
+    // Persist declined choice in browser local storage
+    localStorage.setItem('whatsbill-cookie-consent-choice', 'declined');
     setIsVisible(false);
   };
 
@@ -44,11 +49,11 @@ export function CookieConsent() {
               <ShieldCheck className="w-4 h-4" />
             </div>
             <h3 className="text-sm font-bold text-slate-100" id="cookie-consent-title">
-              Privacy & Session Notice
+              Privacy & Cookie Preference
             </h3>
           </div>
           <button
-            onClick={handleAcknowledge}
+            onClick={handleDecline}
             aria-label="Dismiss privacy notice"
             className="text-slate-400 hover:text-white transition-colors p-1 rounded-md hover:bg-slate-800 cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center"
             id="cookie-consent-close-btn"
@@ -58,12 +63,15 @@ export function CookieConsent() {
         </div>
 
         {/* Banner Description */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-xs text-slate-300 leading-relaxed" id="cookie-consent-desc">
-            WhatsBill uses strictly essential first-party session cookies required for authentication, secure sessions, and maintaining your login state. <strong>No non-essential tracking, marketing pixels, or analytical cookies are used.</strong>
+            WhatsBill uses essential session cookies required for authentication and maintaining your signed-in state. These essential cookies cannot be disabled because they are required for the service to work.
+          </p>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            We currently do not use non-essential analytics or advertising cookies. If optional technologies are introduced in the future, your preference will be respected.
           </p>
           <p className="text-[11px] text-slate-400 leading-normal">
-            WhatsBill may also use browser local storage for essential workspace configuration and preference settings. See our{' '}
+            WhatsBill may also use browser local storage for essential preferences and acknowledgement settings. See our{' '}
             <a href="/cookies" className="underline text-emerald-400 hover:text-emerald-300 font-semibold transition">
               Cookie Policy
             </a>{' '}
@@ -76,13 +84,20 @@ export function CookieConsent() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center justify-end pt-1 text-xs">
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-1 text-xs">
           <button
-            onClick={handleAcknowledge}
-            className="px-4 py-2 rounded-lg font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 transition shadow-md flex items-center gap-1 cursor-pointer"
-            id="cookie-consent-acknowledge-btn"
+            onClick={handleDecline}
+            className="w-full sm:w-auto px-4 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition cursor-pointer text-center"
+            id="cookie-consent-decline-btn"
           >
-            <span>Got it</span>
+            Decline
+          </button>
+          <button
+            onClick={handleAccept}
+            className="w-full sm:w-auto px-4 py-2 rounded-lg font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 transition shadow-md flex items-center justify-center gap-1 cursor-pointer text-center"
+            id="cookie-consent-accept-btn"
+          >
+            <span>Accept</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

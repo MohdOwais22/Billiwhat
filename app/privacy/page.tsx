@@ -101,10 +101,10 @@ export default function PrivacyPolicyPage() {
               Third-party service providers may process information on our behalf to provide infrastructure, authentication, AI processing, messaging, or error monitoring. These include:
             </p>
             <ul className="list-disc list-inside text-sm text-slate-600 space-y-2 pl-2">
-              <li><strong>Supabase:</strong> Provides PostgreSQL database hosting and handles SSR authentication and user sessions. All records are isolated per merchant workspace using strict PostgreSQL Row-Level Security (RLS).</li>
-              <li><strong>Google Gemini:</strong> Translates conversational commands into structured data drafts server-side using Gemini AI model endpoints (such as `gemini-3.5-flash`). Credentials, database records, and system secrets are not sent to Google Gemini.</li>
-              <li><strong>Meta / WhatsApp:</strong> Integrates conversational triggers via the WhatsApp Business API when configured with merchant credentials.</li>
-              <li><strong>Sentry:</strong> Analyzes errors and application crashes. It is configured to redact browser cookies and authorization headers automatically before logging.</li>
+              <li><strong>Cloud Infrastructure & Database Services:</strong> Provides secure cloud hosting, authentication, and user sessions. All records are isolated per merchant workspace using strict database Row-Level Security (RLS).</li>
+              <li><strong>AI Language Models:</strong> WhatsBill may use third-party AI services to interpret conversational requests and convert them into structured information needed to provide certain features. Credentials, database records, and system secrets are not sent to these AI services.</li>
+              <li><strong>Messaging Providers:</strong> Integrates conversational triggers via messaging APIs (such as the WhatsApp Business API) when configured with merchant credentials.</li>
+              <li><strong>Error Monitoring Services:</strong> Analyzes errors and application crashes to improve reliability. These services are configured to redact browser cookies, authorization headers, and sensitive personal information automatically before logging.</li>
             </ul>
           </section>
 
@@ -114,10 +114,10 @@ export default function PrivacyPolicyPage() {
               4. Security & Isolation Controls
             </h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              To guarantee that your B2B records remain private and isolated from other merchants:
+              WhatsBill uses organizational access controls and database-level security measures designed to keep each merchant's business records isolated from other merchants:
             </p>
             <ul className="list-disc list-inside text-sm text-slate-600 space-y-2 pl-2">
-              <li><strong>PostgreSQL RLS:</strong> Every database table is protected by active Row-Level Security policies. This ensures that users authenticated to Organization A are technically blocked from querying, modifying, inserting, or deleting records belonging to Organization B.</li>
+              <li><strong>Database Row-Level Security (RLS):</strong> Every database table is protected by active Row-Level Security policies. This ensures that users authenticated to Organization A are technically blocked from querying, modifying, inserting, or deleting records belonging to Organization B.</li>
               <li><strong>Session Safety:</strong> Browser-side session tokens are held in secure cookies, and API routes are routed through server-side authorization filters.</li>
             </ul>
           </section>
@@ -138,7 +138,7 @@ export default function PrivacyPolicyPage() {
                 <strong>B. Browser Local Storage (localStorage):</strong> This is local browser storage and is not a cookie. It stores:
               </p>
               <ul className="list-disc list-inside pl-3 space-y-1">
-                <li><code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">whatsbill-privacy-acknowledged</code>: Remembers your privacy notice acknowledgment choice (holds only the indicator string "acknowledged").</li>
+                <li><code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">whatsbill-cookie-consent-choice</code>: Saves your explicit cookie and privacy preferences (holds the value &quot;accepted&quot; or &quot;declined&quot;) to manage preference states and hide the consent banner.</li>
               </ul>
               <p>
                 <strong>C. No Non-Essential Tracking:</strong> This application does not use, load, or integrate any non-essential analytics tracking, marketing cookies, custom behavioral tracking scripts, or advertising pixels (such as Google Analytics or Meta Pixel).

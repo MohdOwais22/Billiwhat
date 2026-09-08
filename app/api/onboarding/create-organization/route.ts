@@ -37,19 +37,25 @@ export async function POST(req: NextRequest) {
 
     // 1. Authenticate user: Check Authorization Bearer header first, then cookie-based session
     let user: any = null;
+    let dbClient: any = null;
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7).trim();
       if (token && supabaseUrl && supabaseAnonKey) {
         try {
-          const tokenClient = createServerClient(supabaseUrl, supabaseAnonKey, {
+          dbClient = createServerClient(supabaseUrl, supabaseAnonKey, {
             cookies: {
               getAll: () => [],
               setAll: () => {},
             },
+            global: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
           });
-          const { data: tokenAuth } = await tokenClient.auth.getUser(token);
+          const { data: tokenAuth } = await dbClient.auth.getUser();
           if (tokenAuth?.user) {
             user = tokenAuth.user;
           }
@@ -61,14 +67,16 @@ export async function POST(req: NextRequest) {
 
     // If no user from header, check cookie session
     if (!user) {
-      const supabase = await createClient();
-      const { data: cookieAuth } = await supabase.auth.getUser();
-      if (cookieAuth?.user) {
-        user = cookieAuth.user;
+      dbClient = await createClient();
+      if (dbClient) {
+        const { data: cookieAuth } = await dbClient.auth.getUser();
+        if (cookieAuth?.user) {
+          user = cookieAuth.user;
+        }
       }
     }
 
-    if (!user) {
+    if (!user || !dbClient) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in before creating a workspace.' },
         { status: 401 }
@@ -128,156 +136,46 @@ export async function POST(req: NextRequest) {
 
     const cleanDisplayName = displayName?.trim() || null;
 
-    // Use admin client with service role key if available, otherwise cookie-based client
-    let dbClient: any = null;
-    if (serviceRoleKey && supabaseUrl) {
-      dbClient = createServerClient(supabaseUrl, serviceRoleKey, {
-        cookies: {
-          getAll: () => [],
-          setAll: () => {},
-        },
-      });
-    } else {
-      dbClient = await createClient();
+    // Execute atomic database RPC using the authenticated user's session client
+    const { data: rpcResult, error: rpcError } = await dbClient.rpc(
+      'create_organization_for_current_user',
+      {
+        p_name: trimmedName,
+        p_legal_name: trimmedLegalName,
+        p_phone: cleanPhone,
+        p_email: cleanEmail,
+        p_address_line1: cleanAddressLine1,
+        p_address_line2: cleanAddressLine2,
+        p_city: cleanCity,
+        p_state: cleanState,
+        p_state_code: derivedStateCode,
+        p_pincode: cleanPincode,
+        p_country: cleanCountry,
+        p_gstin: cleanGstin,
+        p_display_name: cleanDisplayName,
+      }
+    );
+
+    if (rpcError) {
+      console.error('RPC Error creating organization:', rpcError);
+      return NextResponse.json(
+        { error: rpcError.message || 'Failed to create workspace in database.' },
+        { status: 500 }
+      );
     }
 
-    // 1. Prevent duplicate organization creation for the same user
-    const { data: existingMember } = await dbClient
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingMember?.organization_id) {
+    if (rpcResult && rpcResult.success) {
       return NextResponse.json({
         success: true,
-        organizationId: existingMember.organization_id,
-        alreadyExisted: true,
+        organizationId: rpcResult.organization_id,
+        alreadyExisted: rpcResult.already_existed || false,
       });
     }
 
-    // 2. Try atomic database RPC first if deployed in Supabase
-    try {
-      const { data: rpcResult, error: rpcError } = await dbClient.rpc(
-        'create_organization_for_current_user',
-        {
-          p_name: trimmedName,
-          p_legal_name: trimmedLegalName,
-          p_phone: cleanPhone,
-          p_email: cleanEmail,
-          p_address_line1: cleanAddressLine1,
-          p_address_line2: cleanAddressLine2,
-          p_city: cleanCity,
-          p_state: cleanState,
-          p_state_code: derivedStateCode,
-          p_pincode: cleanPincode,
-          p_country: cleanCountry,
-          p_gstin: cleanGstin,
-          p_display_name: cleanDisplayName,
-        }
-      );
-
-      if (!rpcError && rpcResult?.success && rpcResult?.organization_id) {
-        return NextResponse.json({
-          success: true,
-          organizationId: rpcResult.organization_id,
-          alreadyExisted: rpcResult.already_existed || false,
-        });
-      }
-    } catch {
-      // RPC not found or errored, proceed to server fallback
-    }
-
-    // 3. Fallback: Server-side execution
-    if (cleanDisplayName) {
-      try {
-        await dbClient
-          .from('user_profiles')
-          .update({
-            display_name: cleanDisplayName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-      } catch (profileErr) {
-        console.warn('Could not update user_profiles:', profileErr);
-      }
-    }
-
-    // Create organization using existing production columns
-    const newOrgId = crypto.randomUUID();
-    const payload: Record<string, any> = {
-      id: newOrgId,
-      name: trimmedName,
-      legal_name: trimmedLegalName,
-      country: cleanCountry || 'India',
-      currency: 'INR',
-      timezone: 'Asia/Kolkata',
-      invoice_prefix: 'INV',
-      invoice_sequence: 1,
-    };
-    if (cleanGstin) payload.gstin = cleanGstin;
-    if (cleanPhone) payload.phone = cleanPhone;
-    if (cleanEmail) payload.email = cleanEmail;
-    if (cleanAddressLine1) payload.address_line1 = cleanAddressLine1;
-    if (cleanAddressLine2) payload.address_line2 = cleanAddressLine2;
-    if (cleanCity) payload.city = cleanCity;
-    if (cleanState) payload.state = cleanState;
-    if (derivedStateCode) payload.state_code = derivedStateCode;
-    if (cleanPincode) payload.pincode = cleanPincode;
-
-    const { error: orgError } = await dbClient
-      .from('organizations')
-      .insert(payload);
-
-    if (orgError) {
-      console.error('Failed to insert organization:', orgError);
-      return NextResponse.json(
-        { error: orgError.message || 'Failed to create workspace in database.' },
-        { status: 500 }
-      );
-    }
-
-    // Insert organization membership (role: 'owner') linked to auth.users.id
-    const { error: memberError } = await dbClient
-      .from('organization_members')
-      .insert({
-        organization_id: newOrgId,
-        user_id: user.id,
-        role: 'owner',
-      });
-
-    if (memberError) {
-      console.error('Failed to insert owner membership, rolling back organization:', memberError);
-      await dbClient.from('organizations').delete().eq('id', newOrgId);
-      return NextResponse.json(
-        { error: memberError.message || 'Failed to assign workspace ownership.' },
-        { status: 500 }
-      );
-    }
-
-    // Insert GST profile if provided (strictly respecting gst_profiles schema)
-    if (cleanGstin) {
-      try {
-        await dbClient.from('gst_profiles').insert({
-          organization_id: newOrgId,
-          gstin: cleanGstin,
-          trade_name: trimmedName,
-          legal_name: trimmedLegalName,
-          state_code: derivedStateCode || null,
-          e_invoice_enabled: false,
-          e_way_bill_enabled: false,
-        });
-      } catch (gstErr) {
-        console.warn('Could not insert gst_profile:', gstErr);
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      organizationId: newOrgId,
-      alreadyExisted: false,
-    });
+    return NextResponse.json(
+      { error: 'Failed to create workspace in database.' },
+      { status: 500 }
+    );
   } catch (err: any) {
     console.error('Organization creation API error:', err);
     return NextResponse.json(

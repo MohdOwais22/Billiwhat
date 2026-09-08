@@ -754,7 +754,12 @@ export async function processWhatsAppMessage({
       const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_invoice_with_items', rpcPayload);
 
       if (!rpcErr && rpcRes && rpcRes.id) {
-        createdInvoice = rpcRes;
+        const { data: fullInvoice } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('id', rpcRes.id)
+          .single();
+        createdInvoice = fullInvoice || rpcRes;
       }
     } catch (err) {
       // RPC error

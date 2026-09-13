@@ -5,8 +5,6 @@ import { getSupabaseEnv } from '@/lib/supabase/config';
 import {
   normalizePhoneNumber,
   isMasterPhone,
-  getMasterOtp,
-  isMasterAdmin,
 } from '@/lib/auth/masterAdmin';
 
 export async function POST(req: NextRequest) {
@@ -21,7 +19,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { url: supabaseUrl, anonKey: supabaseAnonKey, serviceRoleKey } = getSupabaseEnv();
+    const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseEnv();
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return NextResponse.json(
@@ -33,134 +31,18 @@ export async function POST(req: NextRequest) {
     const normalizedPhone = normalizePhoneNumber(rawPhone);
     const standardPhone = normalizedPhone ? `+${normalizedPhone}` : rawPhone.trim();
 
-    // 1. Check if the provided phone matches the configured MASTER_PHONE_NUMBER
+    // 1. Check Master Identity Server-Side
     if (isMasterPhone(rawPhone)) {
-      const configuredMasterOtp = getMasterOtp();
-
-      // If NO Master OTP is set in the environment, log in the Master user directly without requiring OTP!
-      if (!configuredMasterOtp) {
-        if (!serviceRoleKey) {
-          return NextResponse.json(
-            { error: 'Server authentication configuration is missing service role key.' },
-            { status: 500 }
-          );
-        }
-
-        const cookieStore = await cookies();
-        const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll();
-            },
-            setAll(cookiesToSet) {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            },
-          },
-        });
-
-        const adminClient = createServerClient(supabaseUrl, serviceRoleKey, {
-          cookies: {
-            getAll() {
-              return [];
-            },
-            setAll() {},
-          },
-        });
-
-        const sessionSecret = `wb_master_${normalizedPhone}_${serviceRoleKey.slice(0, 16)}`;
-
-        // Check if user already exists
-        const { data: userList } = await adminClient.auth.admin.listUsers({ perPage: 100 });
-        const users = userList?.users || [];
-        const existingUser = users.find(
-          (u: any) =>
-            u.phone === standardPhone ||
-            normalizePhoneNumber(u.phone) === normalizedPhone ||
-            normalizePhoneNumber(u.user_metadata?.phone) === normalizedPhone
-        );
-
-        let targetUserId: string | null = null;
-
-        if (existingUser) {
-          targetUserId = existingUser.id;
-          await adminClient.auth.admin.updateUserById(existingUser.id, {
-            phone_confirm: true,
-            password: sessionSecret,
-          });
-        } else {
-          // Create master user with phone verified
-          const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-            phone: standardPhone,
-            phone_confirm: true,
-            password: sessionSecret,
-            user_metadata: {
-              phone: standardPhone,
-              full_name: 'Master Admin',
-            },
-          });
-
-          if (newUser?.user?.id) {
-            targetUserId = newUser.user.id;
-          } else if (createError) {
-            console.warn('Could not create master user:', createError.message);
-          }
-        }
-
-        // Authenticate the session through Supabase to generate valid auth cookies
-        let signInResult = await supabase.auth.signInWithPassword({
-          phone: standardPhone,
-          password: sessionSecret,
-        });
-
-        if (signInResult.error && targetUserId) {
-          const internalEmail = `master_${normalizedPhone}@whatsbill.internal`;
-          await adminClient.auth.admin.updateUserById(targetUserId, {
-            email: internalEmail,
-            email_confirm: true,
-            password: sessionSecret,
-          });
-          signInResult = await supabase.auth.signInWithPassword({
-            email: internalEmail,
-            password: sessionSecret,
-          });
-        }
-
-        if (signInResult.error) {
-          return NextResponse.json(
-            { error: `Master login failed: ${signInResult.error.message}` },
-            { status: 401 }
-          );
-        }
-
-        const authenticatedUser = signInResult.data.user;
-
-        return NextResponse.json({
-          success: true,
-          isMaster: true,
-          autoLogin: true,
-          isAdmin: true,
-          message: 'Master Admin authorized. Redirecting...',
-          user: {
-            id: authenticatedUser.id,
-            phone: authenticatedUser.phone || standardPhone,
-            email: authenticatedUser.email,
-          },
-        });
-      }
-
-      // If MASTER_OTP is configured, bypass external SMS provider call and prompt for the Master OTP directly
+      // For master user, external OTP provider is completely bypassed.
+      // Return a completely generic response to advance to the OTP entry screen without leaking identity.
       return NextResponse.json({
         success: true,
-        isMaster: true,
-        autoLogin: false,
+        message: 'Verification code sent to your phone',
         requiresOtp: true,
-        message: 'Master phone verified. Please enter your Master Verification Code.',
       });
     }
 
-    // 2. Standard User Phone: attempt sending OTP via Supabase
+    // 2. Normal User Flow: Call existing Supabase OTP provider
     const cookieStore = await cookies();
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
@@ -189,7 +71,6 @@ export async function POST(req: NextRequest) {
       });
 
       if (smsError) {
-        // If the SMS/WhatsApp provider is not enabled in Supabase, return a clear message
         const isProviderError =
           smsError.message?.toLowerCase().includes('unsupported phone provider') ||
           smsError.message?.toLowerCase().includes('provider') ||
@@ -215,10 +96,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      isMaster: false,
-      autoLogin: false,
+      message: 'Verification code sent to your phone',
       requiresOtp: true,
-      message: `Verification code sent to ${standardPhone}`,
     });
   } catch (err: any) {
     console.error('Send OTP error:', err);

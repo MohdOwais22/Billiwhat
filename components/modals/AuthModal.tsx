@@ -169,7 +169,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     try {
       const formatted = formatPhone(phone);
 
-      // 1. First attempt server-side verification (handles MASTER_OTP and cookie session generation)
+      // Server-side verification (validates master credentials or standard Supabase provider, and generates session)
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,54 +179,11 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
         }),
       });
 
-      if (res.ok) {
-        const result = await res.json();
-        setSuccessMsg('Authentication successful! Directing to application...');
+      const result = await res.json().catch(() => ({}));
 
-        if (onSuccess) {
-          onSuccess();
-        }
-
-        setTimeout(() => {
-          onClose();
-          if (result.isAdmin) {
-            router.push('/admin');
-          } else if (result.hasOrganization) {
-            router.push('/dashboard');
-          } else {
-            router.push('/onboarding?next=/dashboard');
-          }
-          router.refresh();
-        }, 600);
-        return;
+      if (!res.ok) {
+        throw new Error(result?.error || 'Invalid credentials');
       }
-
-      // If server returned an error message, try client Supabase fallback
-      const client = getSupabaseClient();
-      if (!client) {
-        const resJson = await res.json().catch(() => ({}));
-        throw new Error(resJson?.error || 'Authentication client is unavailable.');
-      }
-
-      const { data, error } = await client.auth.verifyOtp({
-        phone: formatted,
-        token: otp,
-        type: 'sms',
-      });
-
-      if (error) {
-        const resJson = await res.json().catch(() => ({}));
-        throw new Error(resJson?.error || error.message || 'Invalid or expired verification code.');
-      }
-      if (!data?.user) throw new Error('Authentication succeeded but no user session was returned.');
-
-      // Check whether user belongs to an organization
-      const { data: member } = await client
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', data.user.id)
-        .limit(1)
-        .maybeSingle();
 
       setSuccessMsg('Authentication successful! Directing to application...');
 
@@ -236,16 +193,18 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
 
       setTimeout(() => {
         onClose();
-        if (member?.organization_id) {
+        if (result.isAdmin) {
+          router.push('/dashboard');
+        } else if (result.hasOrganization) {
           router.push('/dashboard');
         } else {
           router.push('/onboarding?next=/dashboard');
         }
         router.refresh();
-      }, 600);
+      }, 500);
     } catch (err: any) {
-      console.error('WhatsApp OTP Verification Error:', err);
-      setErrorMsg(err?.message || 'Invalid or expired verification code.');
+      console.error('OTP Verification Error:', err);
+      setErrorMsg(err?.message || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }
@@ -325,7 +284,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
                     maxLength={10}
                     disabled={isLoading || isDemoLoading}
                     autoFocus
-                    placeholder="98000 00000"
+                    placeholder="Enter mobile number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                     className="w-full px-3 py-2.5 text-sm rounded-r-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition font-medium"

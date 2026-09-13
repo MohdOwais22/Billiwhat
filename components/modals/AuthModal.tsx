@@ -149,7 +149,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     setIsLoading(true);
 
     try {
-      // 1. Send OTP request to server route (handles Master Phone check & standard Supabase auth)
+      // 1. Send OTP request to server route (handles Master Phone check & standard supabase auth session)
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

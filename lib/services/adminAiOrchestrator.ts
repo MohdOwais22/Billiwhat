@@ -1,5 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { executeExecutiveQuery } from './agentTeam/orchestrator';
+import {
+  SpecialistContribution,
+  RealityCheckReport,
+  ActionProposal,
+  ExecutionTrace,
+} from './agentTeam/types';
 
 export interface PlatformHealthSnapshot {
   timestamp: string;
@@ -74,6 +81,17 @@ export interface StructuredAiResponse {
     targetId?: string;
   };
   diagnosticsData?: any;
+  specialistContributions?: SpecialistContribution[];
+  realityCheck?: RealityCheckReport;
+  recommendedActions?: ActionProposal[];
+  unknownOrMissingData?: string[];
+  marketIntelligence?: Array<{
+    source: string;
+    date: string;
+    claim: string;
+    category?: string;
+  }>;
+  trace?: ExecutionTrace;
 }
 
 /**
@@ -350,123 +368,34 @@ export async function orchestrateAdminAiQuery(
   supabase: SupabaseClient,
   adminUser: { id: string; email?: string | null; phone?: string | null }
 ): Promise<StructuredAiResponse> {
-  const snapshot = await getPlatformHealthSnapshot(supabase);
-
-  // Check if query targets a specific organization by name or ID
-  const lowerQuery = query.toLowerCase().trim();
-  const matchedOrg = snapshot.organizationHealth.find(
-    (o) => lowerQuery.includes(o.name.toLowerCase()) || (o.id && lowerQuery.includes(o.id.toLowerCase()))
-  );
-
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
-      });
-
-      const promptContext = `
-You are WhatsBill AI, the server-authoritative AI Command Center Orchestrator for the WhatsBill platform administrator.
-You have been provided with VERIFIED, DETERMINISTIC real-time database facts below.
-NEVER invent or hallucinate metrics. If a metric is 0, state 0 honestly.
-
-VERIFIED REAL-TIME PLATFORM DATA:
-- Total Organizations: ${snapshot.metrics.totalOrganizations}
-- Active Organizations (with billing/payments): ${snapshot.metrics.activeOrganizations}
-- Dormant/Incomplete Organizations: ${snapshot.metrics.dormantOrganizations}
-- Total Users: ${snapshot.metrics.totalUsers}
-- Total Invoices: ${snapshot.metrics.totalInvoices}
-- Total Invoiced Volume: ₹${snapshot.metrics.totalInvoiceAmount}
-- Total Payments Recorded: ${snapshot.metrics.totalPayments}
-- Total Collected Volume: ₹${snapshot.metrics.totalPaymentAmount}
-- Outstanding Balance: ₹${snapshot.metrics.outstandingReceivables}
-- Total Products Across Platform: ${snapshot.metrics.totalProducts}
-- Total Customers Across Platform: ${snapshot.metrics.totalCustomers}
-- WhatsApp Total Messages: ${snapshot.metrics.totalMessages} (Success: ${snapshot.metrics.successfulMessages}, Failed: ${snapshot.metrics.failedMessages}, Rate: ${snapshot.metrics.messageSuccessRate}%)
-- Invoices By Status: ${JSON.stringify(snapshot.invoicesByStatus)}
-- Organizations List & Health: ${JSON.stringify(
-        snapshot.organizationHealth.map((o) => ({
-          id: o.id,
-          name: o.name,
-          invoices: o.invoiceCount,
-          billed: o.invoiceTotal,
-          collected: o.paymentTotal,
-          customers: o.customerCount,
-          products: o.productCount,
-          hasWhatsApp: o.hasWhatsApp,
-          healthStatus: o.healthStatus,
-          healthNotes: o.healthNotes,
-        }))
-      )}
-
-ADMIN QUESTION: "${query}"
-${matchedOrg ? `NOTE: The admin seems to be asking specifically about organization: "${matchedOrg.name}" (${matchedOrg.id}).` : ''}
-
-You MUST return a clean JSON object with this exact structure:
-{
-  "whatIsHappening": "A clear, direct 1-2 sentence executive answer to the admin's question based strictly on the verified numbers.",
-  "why": "Detailed root cause analysis explaining the operational, setup, or data reasons.",
-  "affected": "Clear description of affected entities (e.g. '2 organizations: WhatsBill, ViceIntel' or '0 organizations affected').",
-  "severity": "normal" | "low" | "medium" | "high" | "critical",
-  "evidence": [
-    "Fact 1 with exact numbers",
-    "Fact 2 with exact numbers",
-    "Fact 3 with exact numbers"
-  ],
-  "recommendedAction": "Concrete, actionable recommendation for the Master Admin.",
-  "quickAction": {
-    "type": "inspect_org" | "view_invoices" | "view_whatsapp" | "view_audit" | "purge_dummy",
-    "label": "Button label like 'Inspect ViceIntel' or 'View Invoices'",
-    "targetId": "${matchedOrg ? matchedOrg.id : ''}"
+  try {
+    const execRes = await executeExecutiveQuery(query, supabase, adminUser);
+    return {
+      query: execRes.query,
+      whatIsHappening: execRes.whatIsHappening,
+      why: execRes.why,
+      affected: execRes.affected,
+      severity: execRes.severity,
+      evidence: execRes.evidence,
+      recommendedAction: execRes.recommendedActions[0]?.title || 'Monitor regular platform operations.',
+      quickAction: execRes.quickAction,
+      diagnosticsData: execRes.diagnosticsData,
+      specialistContributions: execRes.specialistContributions,
+      realityCheck: execRes.realityCheck,
+      recommendedActions: execRes.recommendedActions,
+      unknownOrMissingData: execRes.unknownOrMissingData,
+      marketIntelligence: execRes.marketIntelligence,
+      trace: execRes.trace,
+    };
+  } catch (err) {
+    console.warn('Executive orchestrator failed, falling back to deterministic synthesis:', err);
+    const snapshot = await getPlatformHealthSnapshot(supabase);
+    const lowerQuery = query.toLowerCase().trim();
+    const matchedOrg = snapshot.organizationHealth.find(
+      (o) => lowerQuery.includes(o.name.toLowerCase()) || (o.id && lowerQuery.includes(o.id.toLowerCase()))
+    );
+    return fallbackDeterministicSynthesis(query, snapshot, matchedOrg, supabase, adminUser);
   }
-}
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: promptContext,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
-
-      const parsed = JSON.parse(response.text || '{}');
-
-      // Log the inquiry into audit log
-      await logAdminAuditAction(supabase, adminUser, 'AI_COMMAND_INQUIRY', 'command_center', null, {
-        query,
-        severity: parsed.severity || 'normal',
-      });
-
-      return {
-        query,
-        whatIsHappening: parsed.whatIsHappening || 'Platform status inquiry evaluated.',
-        why: parsed.why || 'Based on deterministic database query aggregations.',
-        affected: parsed.affected || `${snapshot.metrics.totalOrganizations} organization(s)`,
-        severity: parsed.severity || 'normal',
-        evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [`${snapshot.metrics.totalOrganizations} verified organizations in database`],
-        recommendedAction: parsed.recommendedAction || 'Monitor regular platform operations.',
-        quickAction: parsed.quickAction?.type ? parsed.quickAction : (matchedOrg ? { type: 'inspect_org', label: `Inspect ${matchedOrg.name}`, targetId: matchedOrg.id } : undefined),
-        diagnosticsData: {
-          totalOrgs: snapshot.metrics.totalOrganizations,
-          activeOrgs: snapshot.metrics.activeOrganizations,
-          totalInvoices: snapshot.metrics.totalInvoices,
-          totalCollected: snapshot.metrics.totalPaymentAmount,
-        },
-      };
-    } catch (err) {
-      console.warn('Gemini API call returned error, falling back to deterministic synthesis:', err);
-    }
-  }
-
-  // Deterministic rule-based engine fallback (hallucination-proof, always fast & reliable)
-  return fallbackDeterministicSynthesis(query, snapshot, matchedOrg, supabase, adminUser);
 }
 
 /**

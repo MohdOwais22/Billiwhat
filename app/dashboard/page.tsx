@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { ReceiptText, CreditCard, ClockAlert, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ReceiptText, CreditCard, ClockAlert, BarChart3, ShieldAlert, X } from 'lucide-react';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { MetricCard } from '@/components/dashboard/MetricCard';
@@ -45,6 +45,19 @@ export default function DashboardPage() {
   } = useDashboard();
 
   const dateRange = calculateDateRange(period, customRange);
+  const [isDeniedBannerDismissed, setIsDeniedBannerDismissed] = useState(false);
+  const [hasDeniedParam, setHasDeniedParam] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('denied') === 'admin') {
+        setHasDeniedParam(true);
+      }
+    }
+  }, []);
+
+  const isAccessDenied = hasDeniedParam && !isDeniedBannerDismissed;
 
   if (currentRoute === 'settings') {
     return (
@@ -127,6 +140,33 @@ export default function DashboardPage() {
         />
       ) : dashboardData ? (
         <>
+          {/* Access Denied Notice (if redirected from /admin) */}
+          {isAccessDenied && (
+            <div
+              className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start justify-between gap-3 shadow-2xs"
+              id="admin-access-denied-banner"
+            >
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-amber-900">
+                    Master Admin Access Restricted
+                  </p>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    The Admin Panel (<code className="font-mono font-semibold">/admin</code>) requires authorization from the configured Master Phone Number.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDeniedBannerDismissed(true)}
+                className="p-1 text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-lg transition cursor-pointer"
+                aria-label="Dismiss banner"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Quick Actions Row */}
           <QuickActions
             onCreateInvoice={() => setIsCreateInvoiceOpen(true)}

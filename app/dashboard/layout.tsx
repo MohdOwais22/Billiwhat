@@ -45,6 +45,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     isWhatsAppOpen,
     setIsWhatsAppOpen,
     handleQueueWhatsApp,
+    isAdmin,
   } = useDashboard();
 
   return (
@@ -57,6 +58,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         isLoading={isLoading}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        isAdmin={isAdmin}
       />
 
       {/* Main Content Shell Area - Takes remaining width and scrolls independently */}
@@ -68,6 +70,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           dataSource={dataSource}
           userEmail={userEmail}
+          isAdmin={isAdmin}
         />
 
         {/* Tab Route Content - Independent scroll container */}

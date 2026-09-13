@@ -43,6 +43,8 @@ export function formatINR(
   return `${prefix}${symbol}${formatted}`;
 }
 
+export const formatCurrency = formatINR;
+
 export function formatDate(
   dateInput: string | Date | null | undefined,
   format: 'short' | 'medium' | 'long' = 'medium'

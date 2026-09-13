@@ -13,6 +13,7 @@ import {
   UserCheck,
   Globe,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import { Organization, GstProfile } from '@/types/database';
 import { getTimeOfDayGreeting, formatDate } from '@/lib/utils/formatters';
@@ -26,6 +27,7 @@ interface DashboardHeaderProps {
   onSearch?: (query: string) => void;
   userEmail?: string;
   dataSource?: string;
+  isAdmin?: boolean;
 }
 
 export function DashboardHeader({
@@ -35,6 +37,7 @@ export function DashboardHeader({
   onOpenMobileMenu,
   onSearch,
   userEmail,
+  isAdmin = false,
 }: DashboardHeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
@@ -102,26 +105,15 @@ export function DashboardHeader({
           </div>
         </div>
 
-        {/* Right: Main Site Link, Search, Notifications & Profile */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Direct Back to Main Site Navigation Button */}
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-emerald-700 bg-slate-100/90 hover:bg-slate-200/90 rounded-lg border border-slate-200/90 transition shadow-2xs cursor-pointer"
-            id="header-back-to-main-site-btn"
-            title="Go back to WhatsBill public homepage"
-          >
-            <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="hidden sm:inline">Main Site</span>
-          </Link>
-
-          <div className="relative hidden md:block w-56 lg:w-64">
+        {/* Right: Search, Notifications & Profile */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="relative hidden md:block w-64 lg:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder="Search invoice, customer..."
+              placeholder="Search invoice, customer, GSTIN..."
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
               id="global-search-input"
             />
@@ -188,6 +180,17 @@ export function DashboardHeader({
                   </p>
                 </div>
                 <div className="py-1 text-xs text-slate-700 space-y-0.5">
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 font-semibold transition border border-amber-500/20 mb-1"
+                      id="header-user-menu-admin-link"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Master Admin Panel</span>
+                    </Link>
+                  )}
                   <Link
                     href="/"
                     onClick={() => setShowUserMenu(false)}

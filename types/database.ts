@@ -315,6 +315,8 @@ export type DashboardData = {
   products: Product[];
   dataSource?: 'supabase_live';
   userEmail?: string;
+  userPhone?: string;
+  isAdmin?: boolean;
   isAuthenticated?: boolean;
   hasOrganization?: boolean;
 };

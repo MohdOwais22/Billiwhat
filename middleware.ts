@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { sanitizeSupabaseUrl, sanitizeSupabaseKey } from './lib/supabase/config';
+import { isMasterAdmin } from './lib/auth/masterAdmin';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -36,6 +37,34 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+
+  // Enforce strict protection on Master Admin /admin route
+  if (pathname.startsWith('/admin')) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('next', '/admin');
+      return NextResponse.redirect(url);
+    }
+
+    if (!isMasterAdmin(user)) {
+      // Normal users are blocked and redirected to dashboard
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      url.searchParams.set('denied', 'admin');
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Enforce strict protection on /api/admin/* API endpoints
+  if (pathname.startsWith('/api/admin')) {
+    if (!user || !isMasterAdmin(user)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Master Admin authorization required.' },
+        { status: 403 }
+      );
+    }
+  }
 
   // Enforce protection on dashboard and onboarding routes
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')) {

@@ -80,10 +80,7 @@ export function MarketingPage({ onOpenDashboard }: MarketingPageProps) {
   };
 
   const handleTalkToUs = () => {
-    window.open(
-      'https://wa.me/919876543210?text=Hi%20WhatsBill%20Team%2C%20I%20would%20like%20to%20learn%20more%20about%20WhatsBill',
-      '_blank'
-    );
+    handleOpenAuth('start');
   };
 
   const handleScrollToWorkflow = () => {

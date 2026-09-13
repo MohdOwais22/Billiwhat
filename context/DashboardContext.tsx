@@ -32,6 +32,7 @@ interface DashboardContextType {
   gstProfile: GstProfile | null | undefined;
   userEmail: string | undefined;
   dataSource: string | undefined;
+  isAdmin: boolean;
 
   // Dashboard Data & Loading
   dashboardData: DashboardData | null;
@@ -107,6 +108,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [gstProfile, setGstProfile] = useState<GstProfile | null | undefined>(undefined);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [dataSource, setDataSource] = useState<string | undefined>(undefined);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,6 +203,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       if (data.dataSource) {
         setDataSource(data.dataSource);
       }
+
+      // Check server-side Master Admin authorization safely
+      try {
+        const adminRes = await fetch('/api/auth/admin-status');
+        if (adminRes.ok) {
+          const adminJson = await adminRes.json();
+          setIsAdmin(Boolean(adminJson?.isAdmin));
+        } else {
+          setIsAdmin(false);
+        }
+      } catch {
+        setIsAdmin(false);
+      }
     } catch (err: any) {
       console.error('Error loading dashboard data:', err);
       setError(err?.message || 'Unable to retrieve dashboard metrics.');
@@ -275,6 +290,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         gstProfile,
         userEmail,
         dataSource,
+        isAdmin,
         dashboardData,
         isLoading,
         error,

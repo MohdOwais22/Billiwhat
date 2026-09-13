@@ -20,6 +20,7 @@ import {
   LogOut,
   Globe,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import { Organization } from '@/types/database';
 import { APP_NAME, getBrandInitials } from '@/config/brand';
@@ -45,6 +46,7 @@ export interface SidebarProps {
   onCloseMobile?: () => void;
   currentRoute?: NavRoute;
   onNavigate?: (route: NavRoute) => void;
+  isAdmin?: boolean;
 }
 
 interface NavItemDef {
@@ -74,6 +76,7 @@ export function Sidebar({
   onCloseMobile,
   currentRoute,
   onNavigate,
+  isAdmin = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -226,6 +229,38 @@ export function Sidebar({
             </button>
           );
         })}
+
+        {/* Master Admin Section: Rendered only for authorized Master User */}
+        {isAdmin && (
+          <div className="pt-3 mt-2 border-t border-slate-800/80">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between">
+              <span>Platform Control</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                MASTER
+              </span>
+            </div>
+            <Link
+              href="/admin"
+              onClick={() => {
+                if (isMobileView && onCloseMobile) onCloseMobile();
+              }}
+              id="nav-item-admin-panel"
+              className={`w-full mt-1 flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition duration-150 text-left cursor-pointer active:scale-[0.98] ${
+                pathname?.startsWith('/admin')
+                  ? 'bg-amber-600 text-white font-bold shadow-sm shadow-amber-950/40'
+                  : 'text-amber-300 hover:text-white hover:bg-amber-500/10 border border-amber-500/20 font-medium'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="truncate">Admin Panel</span>
+              </div>
+              <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Oversight
+              </span>
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Footer: Main Site Navigation & Sign Out */}

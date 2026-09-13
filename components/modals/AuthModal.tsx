@@ -144,27 +144,65 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (!otp || otp.length < 6) {
-      setErrorMsg('Please enter the full 6-digit verification code.');
+    if (!otp || otp.length < 4) {
+      setErrorMsg('Please enter the verification code.');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const client = getSupabaseClient();
-      if (!client) {
-        throw new Error('Authentication client is unavailable.');
+      const formatted = formatPhone(phone);
+
+      // 1. First attempt server-side verification (handles MASTER_OTP and cookie session generation)
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: formatted,
+          token: otp,
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setSuccessMsg('Authentication successful! Directing to application...');
+
+        if (onSuccess) {
+          onSuccess();
+        }
+
+        setTimeout(() => {
+          onClose();
+          if (result.isAdmin) {
+            router.push('/admin');
+          } else if (result.hasOrganization) {
+            router.push('/dashboard');
+          } else {
+            router.push('/onboarding?next=/dashboard');
+          }
+          router.refresh();
+        }, 600);
+        return;
       }
 
-      const formatted = formatPhone(phone);
+      // If server returned an error message, try client Supabase fallback
+      const client = getSupabaseClient();
+      if (!client) {
+        const resJson = await res.json().catch(() => ({}));
+        throw new Error(resJson?.error || 'Authentication client is unavailable.');
+      }
+
       const { data, error } = await client.auth.verifyOtp({
         phone: formatted,
         token: otp,
         type: 'sms',
       });
 
-      if (error) throw error;
+      if (error) {
+        const resJson = await res.json().catch(() => ({}));
+        throw new Error(resJson?.error || error.message || 'Invalid or expired verification code.');
+      }
       if (!data?.user) throw new Error('Authentication succeeded but no user session was returned.');
 
       // Check whether user belongs to an organization

@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/types/database';
-import { createClient } from '@/lib/supabase/client';
-import { User, Save, CheckCircle2, AlertCircle, Loader2, LogOut, ShieldCheck, Mail, Phone, KeyRound } from 'lucide-react';
+import { performSignOut } from '@/lib/auth/signout';
+import { User, Save, CheckCircle2, AlertCircle, Loader2, LogOut, ShieldCheck, Mail, Phone, KeyRound, Globe } from 'lucide-react';
 
 interface AccountSectionProps {
   userProfile?: UserProfile | null;
@@ -68,12 +69,7 @@ export function AccountSection({
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     try {
-      const supabase = createClient();
-      if (supabase) {
-        await supabase.auth.signOut();
-      }
-      router.push('/');
-      router.refresh();
+      await performSignOut('/');
     } catch (err) {
       console.error('Error during signout:', err);
       window.location.href = '/';
@@ -208,18 +204,29 @@ export function AccountSection({
       {/* Sign Out / Session Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Session & Sign Out</h3>
-          <p className="text-xs text-slate-500 mt-0.5">End your current session across all open browser tabs</p>
+          <h3 className="text-sm font-bold text-slate-900">Session & Navigation</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Manage your active authentication session and public site access</p>
         </div>
 
-        <button
-          onClick={() => setShowSignoutConfirm(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition cursor-pointer"
-          id="account-signout-btn"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out of Account</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-emerald-700 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-semibold transition cursor-pointer"
+            id="account-back-to-main-btn"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Go to Main Site</span>
+          </Link>
+
+          <button
+            onClick={() => setShowSignoutConfirm(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition cursor-pointer"
+            id="account-signout-btn"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out of Account</span>
+          </button>
+        </div>
       </div>
 
       {/* Signout Confirmation Modal */}

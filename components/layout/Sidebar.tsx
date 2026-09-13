@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,10 +18,12 @@ import {
   ChevronRight,
   X,
   LogOut,
+  Globe,
+  Loader2,
 } from 'lucide-react';
 import { Organization } from '@/types/database';
-import { createClient } from '@/lib/supabase/client';
 import { APP_NAME, getBrandInitials } from '@/config/brand';
+import { performSignOut } from '@/lib/auth/signout';
 
 export type NavRoute =
   | 'dashboard'
@@ -75,6 +77,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Close mobile sidebar on Escape key
   useEffect(() => {
@@ -88,10 +91,13 @@ export function Sidebar({
   }, [isMobileOpen, onCloseMobile]);
 
   const handleSignOut = async () => {
-    const client = createClient();
-    await client.auth.signOut();
-    router.push('/');
-    router.refresh();
+    setIsSigningOut(true);
+    try {
+      await performSignOut('/');
+    } catch (err) {
+      console.error('Sign out error in sidebar:', err);
+      window.location.href = '/';
+    }
   };
 
   const renderSidebarContent = (isMobileView = false) => (
@@ -222,15 +228,33 @@ export function Sidebar({
         })}
       </div>
 
-      {/* Footer Status & Sign Out */}
-      <div className="p-3 border-t border-slate-800/90 bg-slate-950/50 shrink-0 space-y-2">
+      {/* Footer: Main Site Navigation & Sign Out */}
+      <div className="p-3 border-t border-slate-800/90 bg-slate-950/60 shrink-0 space-y-1.5">
+        <Link
+          href="/"
+          onClick={() => {
+            if (isMobileView && onCloseMobile) onCloseMobile();
+          }}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-white bg-slate-800/70 hover:bg-slate-800 rounded-xl transition font-semibold border border-slate-700/60 cursor-pointer shadow-2xs group"
+          id="sidebar-back-to-main-site-btn"
+          title="Return to WhatsBill public homepage"
+        >
+          <Globe className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+          <span>Back to Main Site</span>
+        </Link>
+
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition font-semibold cursor-pointer"
+          disabled={isSigningOut}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition font-semibold cursor-pointer disabled:opacity-50"
           id="sidebar-signout-btn"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out</span>
+          {isSigningOut ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+          ) : (
+            <LogOut className="w-3.5 h-3.5" />
+          )}
+          <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
         </button>
       </div>
     </div>

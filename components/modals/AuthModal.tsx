@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Phone, Lock, MessageSquare, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
-import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { APP_NAME, getBrandInitials } from '@/config/brand';
 
 interface AuthModalProps {
@@ -20,11 +19,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(
-    !isSupabaseConfigured
-      ? 'Authentication service is not configured. Please verify environment credentials.'
-      : null
-  );
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Close modal on Escape key press
@@ -96,11 +91,6 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (!isSupabaseConfigured) {
-      setErrorMsg('Authentication is not configured in this environment.');
-      return;
-    }
-
     const formatted = formatPhone(phone);
     if (!formatted || formatted.length < 12) {
       setErrorMsg('Please enter a valid 10-digit mobile number.');
@@ -123,27 +113,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
         throw new Error(result?.error || 'Failed to send verification code. Please try again.');
       }
 
-      // Case A: Master Phone Number authorized directly without requiring OTP
-      if (result.autoLogin) {
-        setSuccessMsg(result.message || 'Master Admin verified! Directing to platform...');
-        if (onSuccess) {
-          onSuccess();
-        }
-        setTimeout(() => {
-          onClose();
-          if (result.isAdmin) {
-            router.push('/admin');
-          } else if (result.hasOrganization) {
-            router.push('/dashboard');
-          } else {
-            router.push('/onboarding?next=/dashboard');
-          }
-          router.refresh();
-        }, 500);
-        return;
-      }
-
-      // Case B: Requires OTP (Master OTP or Standard OTP)
+      // Show OTP verification UI
       setStep('otp');
       setSuccessMsg(result.message || `Verification code sent to ${formatted}`);
     } catch (err: any) {

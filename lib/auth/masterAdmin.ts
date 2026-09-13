@@ -43,21 +43,37 @@ export function arePhoneNumbersEqual(
   phone1: string | null | undefined,
   phone2: string | null | undefined
 ): boolean {
-  const norm1 = normalizePhoneNumber(phone1);
-  const norm2 = normalizePhoneNumber(phone2);
-
-  if (!norm1 || !norm2) {
+  if (!phone1 || !phone2) {
     return false;
   }
 
-  // Exact normalized match
-  if (norm1 === norm2) {
+  const norm1 = normalizePhoneNumber(phone1);
+  const norm2 = normalizePhoneNumber(phone2);
+
+  // 1. Exact normalized match (handles 10-digit Indian standard +91)
+  if (norm1 && norm2 && norm1 === norm2) {
     return true;
   }
 
-  // Compare trailing 10 digits for full international code resilience
-  if (norm1.length >= 10 && norm2.length >= 10) {
-    return norm1.slice(-10) === norm2.slice(-10);
+  // 2. Pure digits stripped match
+  const d1 = String(phone1).replace(/\D/g, '');
+  const d2 = String(phone2).replace(/\D/g, '');
+  if (d1 && d2 && d1 === d2) {
+    return true;
+  }
+
+  // 3. Compare trailing 10 digits for international code resilience
+  if (norm1.length >= 10 && norm2.length >= 10 && norm1.slice(-10) === norm2.slice(-10)) {
+    return true;
+  }
+
+  if (d1.length >= 10 && d2.length >= 10 && d1.slice(-10) === d2.slice(-10)) {
+    return true;
+  }
+
+  // 4. Suffix match for numbers with country code vs local numbers (at least 8 digits)
+  if (d1.length >= 8 && d2.length >= 8 && (d1.endsWith(d2) || d2.endsWith(d1))) {
+    return true;
   }
 
   return false;
@@ -90,15 +106,20 @@ export function extractUserPhoneNumber(user: any): string | null {
 /**
  * Reads and cleans the MASTER_PHONE_NUMBER from server environment variables.
  * Never hardcoded; strictly loaded from server process.env.
+ * Checks standard variable name as well as common alias variants.
  * Never exposed to client bundles.
  */
 export function getMasterPhoneNumber(): string | null {
-  const envPhone = process.env.MASTER_PHONE_NUMBER;
+  const envPhone =
+    process.env.MASTER_PHONE_NUMBER ||
+    process.env.MASTER_PHONE ||
+    process.env.MASTER_ADMIN_PHONE;
+
   if (!envPhone || typeof envPhone !== 'string') {
     return null;
   }
 
-  const cleaned = envPhone.trim().replace(/^["']|["']$/g, '');
+  const cleaned = envPhone.trim().replace(/^["']+|["']+$/g, '').trim();
   if (!cleaned) {
     return null;
   }
@@ -109,15 +130,20 @@ export function getMasterPhoneNumber(): string | null {
 /**
  * Reads and cleans the MASTER_OTP from server environment variables.
  * Never hardcoded; strictly loaded from server process.env.
+ * Checks standard variable name as well as common alias variants.
  * Never exposed to client bundles.
  */
 export function getMasterOtp(): string | null {
-  const envOtp = process.env.MASTER_OTP;
+  const envOtp =
+    process.env.MASTER_OTP ||
+    process.env.MASTER_ADMIN_OTP ||
+    process.env.MASTER_VERIFICATION_CODE;
+
   if (!envOtp || typeof envOtp !== 'string') {
     return null;
   }
 
-  const cleaned = envOtp.trim().replace(/^["']|["']$/g, '');
+  const cleaned = envOtp.trim().replace(/^["']+|["']+$/g, '').trim();
   if (!cleaned) {
     return null;
   }
@@ -138,7 +164,10 @@ export function isMasterOtp(candidateOtp: string | null | undefined): boolean {
     return false;
   }
 
-  return candidateOtp.trim() === masterOtp;
+  const cleanCandidate = candidateOtp.trim().replace(/\s+/g, '');
+  const cleanMaster = masterOtp.trim().replace(/\s+/g, '');
+
+  return cleanCandidate === cleanMaster;
 }
 
 /**

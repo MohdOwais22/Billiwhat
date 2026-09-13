@@ -29,20 +29,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { url: supabaseUrl, anonKey: supabaseAnonKey, serviceRoleKey } = getSupabaseEnv();
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Authentication service is unavailable.' },
-        { status: 503 }
-      );
-    }
-
+    // =========================================================================
+    // STEP 1: NORMALIZE PHONE NUMBER
+    // =========================================================================
     const normalizedPhone = normalizePhoneNumber(rawPhone);
     const standardPhone = normalizedPhone ? `+${normalizedPhone}` : rawPhone.trim();
 
-    // 1. Step 1: Check Master Identity Server-Side
-    if (isMasterPhone(rawPhone)) {
+    // =========================================================================
+    // STEP 2: SERVER-SIDE MASTER CHECK (EXECUTED FIRST)
+    // =========================================================================
+    const isMaster =
+      isMasterPhone(rawPhone) ||
+      isMasterPhone(normalizedPhone) ||
+      isMasterPhone(standardPhone);
+
+    if (isMaster) {
       // Verify the entered OTP against the securely configured master OTP
       if (!isMasterOtp(token)) {
         // If the OTP is incorrect, return strictly "Invalid credentials"
@@ -53,7 +54,9 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (!serviceRoleKey) {
+      const { url: supabaseUrl, anonKey: supabaseAnonKey, serviceRoleKey } = getSupabaseEnv();
+
+      if (!serviceRoleKey || !supabaseUrl || !supabaseAnonKey) {
         return NextResponse.json(
           { error: 'Invalid credentials' },
           { status: 401 }
@@ -178,9 +181,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Normal User Flow: Verify OTP using standard Supabase provider
+    // =========================================================================
+    // STEP 3: NORMAL USER BRANCH (EXECUTED ONLY IF NOT MASTER)
+    // =========================================================================
+    // Normal User Flow: Verify OTP using standard Supabase provider
+    const { url: normalSupabaseUrl, anonKey: normalSupabaseAnonKey } = getSupabaseEnv();
+
+    if (!normalSupabaseUrl || !normalSupabaseAnonKey) {
+      return NextResponse.json(
+        { error: 'Authentication service is unavailable. Please check configuration.' },
+        { status: 503 }
+      );
+    }
+
     const cookieStore = await cookies();
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createServerClient(normalSupabaseUrl, normalSupabaseAnonKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll();

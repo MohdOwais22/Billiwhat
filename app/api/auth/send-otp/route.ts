@@ -19,22 +19,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseEnv();
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Supabase credentials are not configured in this environment.' },
-        { status: 503 }
-      );
-    }
-
+    // =========================================================================
+    // STEP 1: NORMALIZE PHONE NUMBER
+    // =========================================================================
     const normalizedPhone = normalizePhoneNumber(rawPhone);
     const standardPhone = normalizedPhone ? `+${normalizedPhone}` : rawPhone.trim();
 
-    // 1. Check Master Identity Server-Side
-    if (isMasterPhone(rawPhone)) {
-      // For master user, external OTP provider is completely bypassed.
-      // Return a completely generic response to advance to the OTP entry screen without leaking identity.
+    // =========================================================================
+    // STEP 2: SERVER-SIDE MASTER PHONE CHECK (EXECUTED FIRST)
+    // =========================================================================
+    // Check whether the entered phone number is the configured master phone
+    // BEFORE performing any normal OTP-provider validation or provider availability check.
+    const isMaster =
+      isMasterPhone(rawPhone) ||
+      isMasterPhone(normalizedPhone) ||
+      isMasterPhone(standardPhone);
+
+    if (isMaster) {
+      // MASTER BRANCH:
+      // - Do NOT perform provider validation.
+      // - Do NOT check whether the phone's provider is supported.
+      // - Do NOT call WhatsApp/SMS OTP provider.
+      // - Do NOT attempt to send an OTP through the external provider.
+      // - Do NOT return "Unsupported phone provider".
+      // - Return success to show the existing OTP verification UI.
       return NextResponse.json({
         success: true,
         message: 'Verification code sent to your phone',
@@ -42,7 +50,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Normal User Flow: Call existing Supabase OTP provider
+    // =========================================================================
+    // STEP 3: NORMAL USER BRANCH (EXECUTED ONLY IF NOT MASTER)
+    // =========================================================================
+    // Perform existing provider validation and external OTP provider dispatch
+    const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseEnv();
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json(
+        { error: 'Authentication service is unavailable. Please check configuration.' },
+        { status: 503 }
+      );
+    }
     const cookieStore = await cookies();
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {

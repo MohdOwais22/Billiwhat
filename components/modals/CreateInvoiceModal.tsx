@@ -414,9 +414,9 @@ export function CreateInvoiceModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Invoice Date */}
-              <div className="min-w-0 w-full">
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Invoice Date *
                 </label>
@@ -425,13 +425,13 @@ export function CreateInvoiceModal({
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   required
-                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   id="create-invoice-date-input"
                 />
               </div>
 
               {/* Due Date */}
-              <div className="min-w-0 w-full">
+              <div className="min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Due Date *
                 </label>
@@ -440,39 +440,41 @@ export function CreateInvoiceModal({
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   required
-                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   id="create-invoice-due-date"
                 />
               </div>
+            </div>
 
-              {/* Place of Supply */}
-              <div className="min-w-0 w-full">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+            {/* Place of Supply */}
+            <div className="min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">
                   Place of Supply (GST State) *
                 </label>
-                <select
-                  value={placeOfSupply}
-                  onChange={(e) => setPlaceOfSupply(e.target.value)}
-                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
-                >
-                  {INDIAN_STATES.map((st) => (
-                    <option key={st.code} value={st.code}>
-                      {st.code} - {st.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                <div className="text-[10px]">
                   {isInterState ? (
-                    <span className="text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                    <span className="text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 inline-block">
                       Inter-State (IGST Applicable)
                     </span>
                   ) : (
-                    <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
                       Intra-State (CGST + SGST Applicable)
                     </span>
                   )}
                 </div>
               </div>
+              <select
+                value={placeOfSupply}
+                onChange={(e) => setPlaceOfSupply(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+              >
+                {INDIAN_STATES.map((st) => (
+                  <option key={st.code} value={st.code}>
+                    {st.code} - {st.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -471,7 +471,11 @@ export async function GET(req: NextRequest) {
         const testUserIds = [userAId, userBId, userCId].filter(Boolean) as string[];
 
         if (testOrgIds.length > 0) {
-          await adminClient.from('invoice_items').delete().in('invoice_id', (await adminClient.from('invoices').select('id').in('organization_id', testOrgIds)).data?.map((i) => i.id) || []);
+          const invData = (await adminClient.from('invoices').select('id').in('organization_id', testOrgIds)).data;
+          const invoiceIds = invData?.map((i) => i.id) || [];
+          if (invoiceIds.length > 0) {
+            await adminClient.from('invoice_items').delete().in('invoice_id', invoiceIds);
+          }
           await adminClient.from('invoices').delete().in('organization_id', testOrgIds);
           await adminClient.from('payments').delete().in('organization_id', testOrgIds);
           await adminClient.from('receivables').delete().in('organization_id', testOrgIds);

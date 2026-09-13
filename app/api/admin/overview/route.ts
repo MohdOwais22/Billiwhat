@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       supabase.from('organizations').select('id, name, created_at', { count: 'exact' }),
       supabase.from('user_profiles').select('id, display_name, created_at', { count: 'exact' }),
-      supabase.from('invoices').select('id, total_amount, status, created_at', { count: 'exact' }),
-      supabase.from('payments').select('id, amount, payment_method, created_at', { count: 'exact' }),
+      supabase.from('invoices').select('id, total, status, created_at', { count: 'exact' }),
+      supabase.from('payments').select('id, amount, method, created_at', { count: 'exact' }),
       supabase.from('customers').select('id', { count: 'exact' }),
       supabase.from('gst_profiles').select('id, gstin, e_invoice_enabled', { count: 'exact' }),
       supabase.from('message_logs').select('id, channel, status', { count: 'exact' }),
@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
     const totalMessages = messagesRes.count ?? (messagesRes.data?.length || 0);
 
     const invoices = invoicesRes.data || [];
-    const totalInvoiceVolume = invoices.reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
+    const totalInvoiceVolume = invoices.reduce((sum, inv: any) => sum + (Number(inv.total ?? inv.total_amount) || 0), 0);
 
     const payments = paymentsRes.data || [];
-    const totalCollectedVolume = payments.reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
+    const totalCollectedVolume = payments.reduce((sum, pay: any) => sum + (Number(pay.amount) || 0), 0);
 
     const systemDiagnostics = {
       supabaseConfigured: true,

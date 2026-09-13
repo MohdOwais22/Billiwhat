@@ -110,30 +110,45 @@ export function AuthModal({ isOpen, onClose, onSuccess, entryContext = 'start' }
     setIsLoading(true);
 
     try {
-      const client = getSupabaseClient();
-      if (!client) {
-        throw new Error('Authentication client is unavailable.');
-      }
-
-      const { error } = await client.auth.signInWithOtp({
-        phone: formatted,
-        options: {
-          channel: 'whatsapp',
-        },
+      // 1. Send OTP request to server route (handles Master Phone check & standard Supabase auth)
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formatted }),
       });
 
-      if (error) {
-        const { error: fallbackErr } = await client.auth.signInWithOtp({
-          phone: formatted,
-        });
-        if (fallbackErr) throw fallbackErr;
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(result?.error || 'Failed to send verification code. Please try again.');
       }
 
+      // Case A: Master Phone Number authorized directly without requiring OTP
+      if (result.autoLogin) {
+        setSuccessMsg(result.message || 'Master Admin verified! Directing to platform...');
+        if (onSuccess) {
+          onSuccess();
+        }
+        setTimeout(() => {
+          onClose();
+          if (result.isAdmin) {
+            router.push('/admin');
+          } else if (result.hasOrganization) {
+            router.push('/dashboard');
+          } else {
+            router.push('/onboarding?next=/dashboard');
+          }
+          router.refresh();
+        }, 500);
+        return;
+      }
+
+      // Case B: Requires OTP (Master OTP or Standard OTP)
       setStep('otp');
-      setSuccessMsg(`WhatsApp verification code sent to ${formatted}`);
+      setSuccessMsg(result.message || `Verification code sent to ${formatted}`);
     } catch (err: any) {
-      console.error('WhatsApp OTP Send Error:', err);
-      setErrorMsg(err?.message || 'Failed to send WhatsApp verification code. Please try again.');
+      console.error('OTP Send Error:', err);
+      setErrorMsg(err?.message || 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }

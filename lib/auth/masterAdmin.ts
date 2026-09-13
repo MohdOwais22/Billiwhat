@@ -142,6 +142,22 @@ export function isMasterOtp(candidateOtp: string | null | undefined): boolean {
 }
 
 /**
+ * Checks if a provided phone string matches the configured server-side MASTER_PHONE_NUMBER.
+ */
+export function isMasterPhone(candidatePhone: string | null | undefined): boolean {
+  if (!candidatePhone || typeof candidatePhone !== 'string') {
+    return false;
+  }
+
+  const masterPhone = getMasterPhoneNumber();
+  if (!masterPhone) {
+    return false;
+  }
+
+  return arePhoneNumbersEqual(candidatePhone, masterPhone);
+}
+
+/**
  * Determines whether the given authenticated user is the Master Admin.
  * Runs strictly on the server side by comparing the normalized user's phone with MASTER_PHONE_NUMBER.
  */

@@ -232,15 +232,15 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="min-w-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="min-w-0 w-full">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 GST Rate (%)
               </label>
               <select
                 value={taxRate}
                 onChange={(e) => setTaxRate(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
               >
                 <option value={18}>18% GST (Standard)</option>
                 <option value={12}>12% GST</option>
@@ -250,7 +250,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
               </select>
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 w-full">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Opening Stock
               </label>
@@ -261,11 +261,11 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
                 value={stockQuantity}
                 onChange={(e) => setStockQuantity(e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="block w-full min-w-0 max-w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 box-border"
               />
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 w-full">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Low Stock Alert
               </label>
@@ -276,7 +276,7 @@ export function AddProductModal({ isOpen, onClose, onSuccess }: AddProductModalP
                 value={minStockAlert}
                 onChange={(e) => setMinStockAlert(e.target.value)}
                 placeholder="10"
-                className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="block w-full min-w-0 max-w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 box-border"
               />
             </div>
           </div>

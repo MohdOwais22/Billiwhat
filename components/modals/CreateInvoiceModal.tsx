@@ -360,7 +360,7 @@ export function CreateInvoiceModal({
                   value={customerId}
                   onChange={(e) => handleCustomerChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
                   id="create-invoice-cust-select"
                 >
                   <option value="">-- Select Registered Customer --</option>
@@ -405,7 +405,7 @@ export function CreateInvoiceModal({
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   placeholder={`Auto: ${nextSeqPreview}`}
-                  className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 box-border"
                   id="create-invoice-num-input"
                 />
                 <p className="text-[10px] text-slate-500 mt-0.5">
@@ -414,9 +414,9 @@ export function CreateInvoiceModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Invoice Date */}
-              <div className="min-w-0">
+              <div className="min-w-0 w-full">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Invoice Date *
                 </label>
@@ -425,13 +425,13 @@ export function CreateInvoiceModal({
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
                   id="create-invoice-date-input"
                 />
               </div>
 
               {/* Due Date */}
-              <div className="min-w-0">
+              <div className="min-w-0 w-full">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Due Date *
                 </label>
@@ -440,20 +440,20 @@ export function CreateInvoiceModal({
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
                   id="create-invoice-due-date"
                 />
               </div>
 
               {/* Place of Supply */}
-              <div className="min-w-0">
+              <div className="min-w-0 w-full">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Place of Supply (GST State) *
                 </label>
                 <select
                   value={placeOfSupply}
                   onChange={(e) => setPlaceOfSupply(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full min-w-0 max-w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium box-border"
                 >
                   {INDIAN_STATES.map((st) => (
                     <option key={st.code} value={st.code}>

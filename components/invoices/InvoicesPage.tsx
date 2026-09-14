@@ -25,12 +25,14 @@ import {
   TrendingUp,
   DollarSign,
   AlertTriangle,
+  Palette,
 } from 'lucide-react';
 import { useDashboard } from '@/context/DashboardContext';
 import { InvoiceStatus, InvoiceWithDetails } from '@/types/database';
 import { formatINR, formatDate, getInvoiceStatusConfig } from '@/lib/utils/formatters';
 import { cancelInvoice } from '@/lib/services/dashboardService';
 import { PrintInvoiceModal } from '@/components/invoices/PrintInvoiceModal';
+import { ThemeSelectorModal } from '@/components/invoices/ThemeSelectorModal';
 
 type SortOption = 'newest' | 'oldest' | 'amount_high' | 'amount_low' | 'due_date';
 type DateFilter = 'all' | 'today' | 'this_week' | 'this_month' | 'last_month' | 'custom';
@@ -73,6 +75,25 @@ export function InvoicesPage() {
 
   // Print modal state
   const [printingInvoice, setPrintingInvoice] = useState<InvoiceWithDetails | null>(null);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+
+  const handleSaveTheme = async (themeId: string) => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_theme',
+          payload: { invoice_theme_id: themeId },
+        }),
+      });
+      if (res.ok) {
+        await loadData();
+      }
+    } catch (err) {
+      console.error('Failed to save theme choice:', err);
+    }
+  };
 
   // Cancellation state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -274,6 +295,16 @@ export function InvoicesPage() {
             title="Refresh Invoices"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsThemeModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition cursor-pointer"
+            id="invoice-themes-cta"
+          >
+            <Palette className="w-4 h-4 text-emerald-600" />
+            <span>Invoice Themes</span>
           </button>
 
           <button
@@ -799,6 +830,17 @@ export function InvoicesPage() {
         gstProfile={gstProfile || dashboardData?.gstProfile}
         isOpen={Boolean(printingInvoice)}
         onClose={() => setPrintingInvoice(null)}
+        onUpdateTheme={handleSaveTheme}
+      />
+
+      {/* Global Invoice Theme Selector Modal */}
+      <ThemeSelectorModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+        currentThemeId={organization?.invoice_theme_id || 'classic_ledger'}
+        organization={organization || dashboardData?.organization}
+        gstProfile={gstProfile || dashboardData?.gstProfile}
+        onSelectTheme={handleSaveTheme}
       />
     </div>
   );

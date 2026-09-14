@@ -214,30 +214,37 @@ export async function POST(req: NextRequest) {
         currency,
         timezone,
         invoice_prefix,
+        invoice_theme_id,
       } = payload;
 
       const cleanGstin = gstin ? gstin.trim().toUpperCase() : null;
 
+      const updateData: Record<string, any> = {
+        name: name ? name.trim() : undefined,
+        legal_name: legal_name ? legal_name.trim() : null,
+        phone: phone ? phone.trim() : null,
+        email: email ? email.trim() : null,
+        gstin: cleanGstin,
+        address_line1: address_line1 ? address_line1.trim() : null,
+        address_line2: address_line2 ? address_line2.trim() : null,
+        city: city ? city.trim() : null,
+        state: state ? state.trim() : null,
+        state_code: state_code ? state_code.trim() : (cleanGstin ? cleanGstin.substring(0, 2) : null),
+        pincode: pincode ? pincode.trim() : null,
+        country: country ? country.trim() : 'India',
+        currency: currency ? currency.trim() : 'INR',
+        timezone: timezone ? timezone.trim() : 'Asia/Kolkata',
+        invoice_prefix: invoice_prefix ? invoice_prefix.trim().toUpperCase() : 'INV',
+        updated_at: new Date().toISOString(),
+      };
+
+      if (invoice_theme_id !== undefined) {
+        updateData.invoice_theme_id = invoice_theme_id;
+      }
+
       const { data: updatedOrg, error: orgUpdateErr } = await adminSupabase
         .from('organizations')
-        .update({
-          name: name ? name.trim() : undefined,
-          legal_name: legal_name ? legal_name.trim() : null,
-          phone: phone ? phone.trim() : null,
-          email: email ? email.trim() : null,
-          gstin: cleanGstin,
-          address_line1: address_line1 ? address_line1.trim() : null,
-          address_line2: address_line2 ? address_line2.trim() : null,
-          city: city ? city.trim() : null,
-          state: state ? state.trim() : null,
-          state_code: state_code ? state_code.trim() : (cleanGstin ? cleanGstin.substring(0, 2) : null),
-          pincode: pincode ? pincode.trim() : null,
-          country: country ? country.trim() : 'India',
-          currency: currency ? currency.trim() : 'INR',
-          timezone: timezone ? timezone.trim() : 'Asia/Kolkata',
-          invoice_prefix: invoice_prefix ? invoice_prefix.trim().toUpperCase() : 'INV',
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', orgId)
         .select()
         .single();
@@ -279,6 +286,34 @@ export async function POST(req: NextRequest) {
               e_way_bill_enabled: false,
             });
         }
+      }
+
+      return NextResponse.json({ success: true, organization: updatedOrg });
+    }
+
+    if (action === 'update_theme') {
+      if (!isOwnerOrAdmin) {
+        return NextResponse.json({ error: 'Forbidden: Only owners and admins can update invoice theme' }, { status: 403 });
+      }
+
+      const { invoice_theme_id } = payload;
+      if (!invoice_theme_id) {
+        return NextResponse.json({ error: 'invoice_theme_id is required' }, { status: 400 });
+      }
+
+      const { data: updatedOrg, error: themeUpdateErr } = await adminSupabase
+        .from('organizations')
+        .update({
+          invoice_theme_id: invoice_theme_id.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orgId)
+        .select()
+        .single();
+
+      if (themeUpdateErr) {
+        console.error('Error updating invoice theme:', themeUpdateErr);
+        return NextResponse.json({ error: themeUpdateErr.message }, { status: 400 });
       }
 
       return NextResponse.json({ success: true, organization: updatedOrg });

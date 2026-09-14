@@ -23,6 +23,7 @@ export type Organization = {
   timezone: string;
   invoice_prefix: string;
   invoice_sequence: number;
+  invoice_theme_id?: string | null;
   created_at: string;
   updated_at?: string;
 };

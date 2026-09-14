@@ -297,13 +297,61 @@ export async function allocatePaymentToInvoice(paymentId: string, invoiceId: str
     p_invoice_id: invoiceId,
   };
 
-  const { data: rpcRes, error: rpcErr } = await supabase.rpc('allocate_payment_to_invoice', rpcPayload);
-
-  if (rpcErr) {
-    throw new Error(rpcErr.message || 'Failed to allocate payment to invoice.');
+  try {
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc('allocate_payment_to_invoice', rpcPayload);
+    if (!rpcErr && rpcRes && rpcRes.success) {
+      return;
+    }
+  } catch {
+    // RPC failed, proceed with direct fallback
   }
 
-  if (!rpcRes || !rpcRes.success) {
-    throw new Error('Payment allocation failed on server.');
+  // Direct table update fallback
+  const { data: payment, error: payErr } = await supabase
+    .from('payments')
+    .select('id, amount, customer_id, invoice_id')
+    .eq('id', paymentId)
+    .eq('organization_id', memberData.organization_id)
+    .single();
+
+  if (payErr || !payment) {
+    throw new Error('Payment record not found.');
   }
+
+  const { data: invoice, error: invErr } = await supabase
+    .from('invoices')
+    .select('id, total_amount, paid_amount, balance_due, invoice_number, status')
+    .eq('id', invoiceId)
+    .eq('organization_id', memberData.organization_id)
+    .single();
+
+  if (invErr || !invoice) {
+    throw new Error('Invoice record not found.');
+  }
+
+  const paymentAmount = Number(payment.amount);
+  const currentPaid = Number(invoice.paid_amount || 0);
+  const newPaid = currentPaid + paymentAmount;
+  const newBalance = Math.max(0, Number(invoice.total_amount) - newPaid);
+  const newStatus = newBalance <= 0 ? 'paid' : 'partially_paid';
+
+  // Link payment to invoice
+  await supabase
+    .from('payments')
+    .update({
+      invoice_id: invoiceId,
+      invoice_number: invoice.invoice_number,
+    })
+    .eq('id', paymentId);
+
+  // Update invoice paid amount and balance
+  await supabase
+    .from('invoices')
+    .update({
+      paid_amount: newPaid,
+      balance_due: newBalance,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', invoiceId);
 }

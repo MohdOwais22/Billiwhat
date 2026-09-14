@@ -414,10 +414,10 @@ export function CreateInvoiceModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
               {/* Invoice Date */}
               <div className="min-w-0">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Invoice Date *
                 </label>
                 <input
@@ -425,14 +425,14 @@ export function CreateInvoiceModal({
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full h-9 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium transition"
                   id="create-invoice-date-input"
                 />
               </div>
 
               {/* Due Date */}
               <div className="min-w-0">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Due Date *
                 </label>
                 <input
@@ -440,20 +440,21 @@ export function CreateInvoiceModal({
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full h-9 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium transition"
                   id="create-invoice-due-date"
                 />
               </div>
 
               {/* Place of Supply */}
               <div className="min-w-0">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Place of Supply (GST State) *
                 </label>
                 <select
                   value={placeOfSupply}
                   onChange={(e) => setPlaceOfSupply(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full h-9 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium transition"
+                  id="create-invoice-pos-select"
                 >
                   {INDIAN_STATES.map((st) => (
                     <option key={st.code} value={st.code}>
@@ -461,13 +462,13 @@ export function CreateInvoiceModal({
                     </option>
                   ))}
                 </select>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
                   {isInterState ? (
-                    <span className="text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                    <span className="text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
                       Inter-State (IGST Applicable)
                     </span>
                   ) : (
-                    <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       Intra-State (CGST + SGST Applicable)
                     </span>
                   )}

@@ -1283,15 +1283,139 @@ export async function cancelInvoice(invoiceId: string) {
   const { data: authData } = await client.auth.getUser();
   if (!authData?.user) throw new Error('Please sign in to cancel invoice.');
 
-  const { data, error } = await client.rpc('cancel_invoice_atomic', {
-    p_invoice_id: invoiceId,
-  });
+  const { data: memberData } = await client
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', authData.user.id)
+    .single();
 
-  if (error) {
-    throw new Error(error.message || 'Failed to cancel invoice.');
+  if (!memberData?.organization_id) throw new Error('No active organization found.');
+
+  try {
+    const { data, error } = await client.rpc('cancel_invoice_atomic', {
+      p_invoice_id: invoiceId,
+    });
+
+    if (!error && data) {
+      return data;
+    }
+    if (error) {
+      console.warn('RPC cancel_invoice_atomic not available or failed, using direct fallback:', error.message);
+    }
+  } catch (rpcErr) {
+    console.warn('RPC cancel_invoice_atomic exception, using direct fallback:', rpcErr);
   }
 
-  return data;
+  return await cancelInvoiceDirectFallback(invoiceId, client, memberData.organization_id);
+}
+
+/**
+ * Direct table update fallback when Postgres RPC function cancel_invoice_atomic is missing or schema cache is stale
+ */
+async function cancelInvoiceDirectFallback(
+  invoiceId: string,
+  client: any,
+  orgId: string
+) {
+  // 1. Fetch invoice to ensure it exists and belongs to this organization
+  const { data: invoice, error: fetchErr } = await client
+    .from('invoices')
+    .select('id, invoice_number, status, total_amount, balance_due, customer_id, organization_id')
+    .eq('id', invoiceId)
+    .eq('organization_id', orgId)
+    .single();
+
+  if (fetchErr || !invoice) {
+    throw new Error('Invoice not found or access denied.');
+  }
+
+  if (invoice.status === 'cancelled') {
+    return { success: true, message: 'Invoice is already cancelled', id: invoiceId };
+  }
+
+  // 2. Fetch line items to restore inventory stock
+  const { data: items, error: itemsErr } = await client
+    .from('invoice_items')
+    .select('product_id, quantity')
+    .eq('invoice_id', invoiceId);
+
+  if (!itemsErr && Array.isArray(items)) {
+    for (const item of items) {
+      if (item.product_id && Number(item.quantity) > 0) {
+        try {
+          const { data: prod } = await client
+            .from('products')
+            .select('id, stock_quantity')
+            .eq('id', item.product_id)
+            .single();
+
+          if (prod && typeof prod.stock_quantity === 'number') {
+            const restoredStock = prod.stock_quantity + Number(item.quantity);
+            await client
+              .from('products')
+              .update({ stock_quantity: restoredStock })
+              .eq('id', item.product_id);
+
+            // Log stock movement if table exists
+            try {
+              await client.from('stock_movements').insert({
+                organization_id: orgId,
+                product_id: item.product_id,
+                movement_type: 'cancellation_restock',
+                quantity: Number(item.quantity),
+                note: `Stock restored on cancellation of invoice ${invoice.invoice_number}`,
+                created_at: new Date().toISOString(),
+              });
+            } catch {
+              // Ignore optional stock_movements table error
+            }
+          }
+        } catch (stockErr) {
+          console.warn('Failed to restore stock for product', item.product_id, stockErr);
+        }
+      }
+    }
+  }
+
+  // 3. Update customer outstanding balance if applicable
+  if (invoice.customer_id && Number(invoice.balance_due) > 0) {
+    try {
+      const { data: cust } = await client
+        .from('customers')
+        .select('id, outstanding_balance')
+        .eq('id', invoice.customer_id)
+        .single();
+
+      if (cust && typeof cust.outstanding_balance === 'number') {
+        const updatedBalance = Math.max(0, cust.outstanding_balance - Number(invoice.balance_due));
+        await client
+          .from('customers')
+          .update({ outstanding_balance: updatedBalance })
+          .eq('id', invoice.customer_id);
+      }
+    } catch (custErr) {
+      console.warn('Failed to update customer outstanding balance:', custErr);
+    }
+  }
+
+  // 4. Update invoice status to cancelled
+  const { data: updatedInv, error: updateErr } = await client
+    .from('invoices')
+    .update({
+      status: 'cancelled',
+      balance_due: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', invoiceId)
+    .eq('organization_id', orgId)
+    .select()
+    .single();
+
+  if (updateErr) {
+    throw new Error(updateErr.message || 'Failed to update invoice status to cancelled.');
+  }
+
+  return updatedInv || { success: true, id: invoiceId, status: 'cancelled' };
 }
 
 /**

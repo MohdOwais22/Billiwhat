@@ -6,6 +6,7 @@ import {
   RealityCheckReport,
   ActionProposal,
   ExecutionTrace,
+  CEOBrief,
 } from './agentTeam/types';
 
 export interface PlatformHealthSnapshot {
@@ -92,6 +93,7 @@ export interface StructuredAiResponse {
     category?: string;
   }>;
   trace?: ExecutionTrace;
+  ceoBrief?: CEOBrief;
 }
 
 /**
@@ -386,6 +388,7 @@ export async function orchestrateAdminAiQuery(
       unknownOrMissingData: execRes.unknownOrMissingData,
       marketIntelligence: execRes.marketIntelligence,
       trace: execRes.trace,
+      ceoBrief: execRes.ceoBrief,
     };
   } catch (err) {
     console.warn('Executive orchestrator failed, falling back to deterministic synthesis:', err);

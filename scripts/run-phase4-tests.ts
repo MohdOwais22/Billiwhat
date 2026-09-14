@@ -143,7 +143,7 @@ async function runPhase4Tests() {
   // --------------------------------------------------------------------------
   console.log('\n--- 1. PHASE 4 AGENT REGISTRY AUDIT ---');
   const allAgents = getAllAgents();
-  assert(allAgents.length === 14, `All 14 agents exist in registry (Found: ${allAgents.length})`);
+  assert(allAgents.length >= 14, `All 14 baseline agents exist in registry (Found: ${allAgents.length})`);
 
   // Support Responder
   const sr = AGENT_REGISTRY['support_responder'];

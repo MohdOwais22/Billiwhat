@@ -3,6 +3,8 @@ import {
   ConfidenceScore,
   AgentFinding,
   ToolExecutionResult,
+  StructuredMemory,
+  MemoryConflictReport,
 } from './types';
 import { PlatformMetricsOutput } from './toolRegistry';
 
@@ -11,6 +13,8 @@ export interface RealityCheckInput {
   specialistFindings: AgentFinding[];
   toolResults: Record<string, ToolExecutionResult>;
   platformMetrics?: PlatformMetricsOutput;
+  memories?: StructuredMemory[];
+  conflictReport?: MemoryConflictReport;
 }
 
 /**
@@ -48,24 +52,30 @@ export function evaluateRealityCheck(input: RealityCheckInput): RealityCheckRepo
 
   // 2. Numerical claim cross-check with verified tool results
   if (platformMetrics) {
-    numericalAudit.push({
-      claim: `Total Billed Volume: ₹${platformMetrics.billedValue.toLocaleString('en-IN')}`,
-      verified: true,
-      sourceTool: 'tool_get_platform_metrics',
-      databaseValue: platformMetrics.billedValue,
-    });
-    numericalAudit.push({
-      claim: `Total Collected Volume: ₹${platformMetrics.collectedValue.toLocaleString('en-IN')}`,
-      verified: true,
-      sourceTool: 'tool_get_platform_metrics',
-      databaseValue: platformMetrics.collectedValue,
-    });
-    numericalAudit.push({
-      claim: `Outstanding Balance: ₹${platformMetrics.outstandingReceivables.toLocaleString('en-IN')}`,
-      verified: true,
-      sourceTool: 'tool_get_platform_metrics',
-      databaseValue: platformMetrics.outstandingReceivables,
-    });
+    if (typeof platformMetrics.billedValue === 'number') {
+      numericalAudit.push({
+        claim: `Total Billed Volume: ₹${platformMetrics.billedValue.toLocaleString('en-IN')}`,
+        verified: true,
+        sourceTool: 'tool_get_platform_metrics',
+        databaseValue: platformMetrics.billedValue,
+      });
+    }
+    if (typeof platformMetrics.collectedValue === 'number') {
+      numericalAudit.push({
+        claim: `Total Collected Volume: ₹${platformMetrics.collectedValue.toLocaleString('en-IN')}`,
+        verified: true,
+        sourceTool: 'tool_get_platform_metrics',
+        databaseValue: platformMetrics.collectedValue,
+      });
+    }
+    if (typeof platformMetrics.outstandingReceivables === 'number') {
+      numericalAudit.push({
+        claim: `Outstanding Balance: ₹${platformMetrics.outstandingReceivables.toLocaleString('en-IN')}`,
+        verified: true,
+        sourceTool: 'tool_get_platform_metrics',
+        databaseValue: platformMetrics.outstandingReceivables,
+      });
+    }
   }
 
   const finRes = toolResults['tool_get_financial_summary']?.data as any;
@@ -93,7 +103,13 @@ export function evaluateRealityCheck(input: RealityCheckInput): RealityCheckRepo
 
   // 4. Check for unsupported assumptions, fake metrics, and unverified correlation
   specialistFindings.forEach((finding) => {
-    finding.keyFindings.forEach((kf) => {
+    const textSegments = [
+      finding.summary || '',
+      ...(finding.keyFindings || []),
+      ...(finding.evidence || []),
+    ];
+
+    textSegments.forEach((kf) => {
       const lower = kf.toLowerCase();
       if (lower.includes('churned') && orgCount < 10) {
         unsupportedAssumptions.push(`Claim of "churn" in [${finding.agentName}] is premature given early stage sample (${orgCount} orgs).`);
@@ -144,6 +160,70 @@ export function evaluateRealityCheck(input: RealityCheckInput): RealityCheckRepo
         }
       }
 
+      // Experiment Tracker causality & baseline check
+      if (finding.agentId === 'experiment_tracker') {
+        const assertsCausation = lower.includes('will definitely cause') || lower.includes('proves that');
+        if (assertsCausation) {
+          unsupportedAssumptions.push(`[Experiment Tracker] claimed definitive causality prior to controlled test completion.`);
+        }
+      }
+
+      // Sprint Prioritizer RICE reach check: Reach cannot be fabricated
+      if (finding.agentId === 'sprint_prioritizer') {
+        if (lower.includes('rice') && lower.includes('fabricated reach')) {
+          unsupportedAssumptions.push(`[Sprint Prioritizer] used fabricated reach data; must fall back to ICE.`);
+        }
+      }
+
+      // Reddit Community Agent ethical check: no spam bots or fake accounts
+      if (finding.agentId === 'reddit_community_agent') {
+        if (lower.includes('auto-post') || lower.includes('mass-post') || lower.includes('bot') || lower.includes('fake account')) {
+          unsupportedAssumptions.push(`[Reddit Community Agent] proposed automated posting or fake accounts violating ethical mandates.`);
+        }
+      }
+
+      // Meta Growth Agent: no fabricated ROAS or ad spend
+      if (finding.agentId === 'meta_growth_agent') {
+        if ((lower.includes('roas') || lower.includes('ad spend') || lower.includes('cpc')) && !lower.includes('unintegrated') && !lower.includes('not measurable')) {
+          unsupportedAssumptions.push(`[Meta Growth Agent] cited paid ad metrics (ROAS/CPC/spend) without acknowledging advertising telemetry is unintegrated.`);
+        }
+      }
+
+      // Google & SEO Agent: external search volume limitation check
+      if (finding.agentId === 'google_seo_agent') {
+        if ((lower.includes('search volume') || lower.includes('cpc') || lower.includes('keyword difficulty')) && !lower.includes('unavailable') && !lower.includes('not integrated') && !lower.includes('estimated')) {
+          unsupportedAssumptions.push(`[Google & SEO Agent] asserted precise keyword volume without acknowledging search data telemetry is unintegrated.`);
+        }
+      }
+
+      // Content Engine Agent: non-duplication check
+      if (finding.agentId === 'content_engine_agent') {
+        if (lower.includes('duplicate content across all channels')) {
+          unsupportedAssumptions.push(`[Content Engine Agent] proposed identical duplicate text across distinct channels.`);
+        }
+      }
+
+      // Lead Intelligence Agent privacy check: no private scraping
+      if (finding.agentId === 'lead_intelligence_agent') {
+        if (lower.includes('scrap') && (lower.includes('whatsapp') || lower.includes('private') || lower.includes('contact list'))) {
+          unsupportedAssumptions.push(`[Lead Intelligence Agent] suggested scraping private WhatsApp data or contact lists.`);
+        }
+      }
+
+      // Conversion Optimizer: no claiming projected lift as fact
+      if (finding.agentId === 'conversion_optimizer') {
+        if (lower.includes('will increase by') && !lower.includes('hypothesis') && !lower.includes('target') && !lower.includes('projected')) {
+          unsupportedAssumptions.push(`[Conversion Optimizer] stated projected conversion lift as fact instead of a testable hypothesis.`);
+        }
+      }
+
+      // Growth Analytics Agent: attribution check
+      if (finding.agentId === 'growth_analytics_agent') {
+        if (lower.includes('full attribution') && !lower.includes('incomplete')) {
+          unsupportedAssumptions.push(`[Growth Analytics Agent] claimed full multi-touch attribution without acknowledging attribution data gaps.`);
+        }
+      }
+
       // Trend Researcher external source check: external claims must carry SOURCE and DATE
       if (finding.agentId === 'trend_researcher') {
         const isExternalClaim = lower.includes('market') || lower.includes('competitor') || lower.includes('gst') || lower.includes('e-invoice') || lower.includes('vyapar') || lower.includes('tally');
@@ -153,11 +233,125 @@ export function evaluateRealityCheck(input: RealityCheckInput): RealityCheckRepo
         }
       }
 
+      // AI Engineer: Prompt safety, secret key hygiene, and token telemetry checks
+      if (finding.agentId === 'ai_engineer') {
+        if (lower.includes('next_public_gemini') || (lower.includes('client-side') && lower.includes('api key'))) {
+          unsupportedAssumptions.push(`[AI Engineer] proposed exposing Gemini API key in client-side code; strictly prohibited.`);
+        }
+        if (lower.includes('zero hallucination') || lower.includes('100% immune to hallucination')) {
+          unsupportedAssumptions.push(`[AI Engineer] claimed absolute zero hallucination without qualification.`);
+        }
+        if ((lower.includes('exact token spend') || lower.includes('cost per query')) && !lower.includes('unintegrated') && !lower.includes('not recorded') && !lower.includes('estimated')) {
+          unsupportedAssumptions.push(`[AI Engineer] asserted exact token billing figures without acknowledging external AI Studio telemetry is unintegrated.`);
+        }
+      }
+
+      // Backend Architect: RLS integrity and EXPLAIN ANALYZE checks
+      if (finding.agentId === 'backend_architect') {
+        if (lower.includes('disable rls') || lower.includes('bypass row-level security')) {
+          unsupportedAssumptions.push(`[Backend Architect] proposed disabling Row-Level Security; violates multi-tenant isolation.`);
+        }
+        if ((lower.includes('explain analyze') || lower.includes('cache hit ratio')) && !lower.includes('unmeasurable') && !lower.includes('not queryable')) {
+          unsupportedAssumptions.push(`[Backend Architect] referenced PostgreSQL execution plans without acknowledging they are unmeasurable via application data layer.`);
+        }
+      }
+
+      // DevOps Automator: Container port and host hardware checks
+      if (finding.agentId === 'devops_automator') {
+        if (lower.includes('change port to') || (lower.includes('port') && (lower.includes('3001') || lower.includes('5173') || lower.includes('8080')))) {
+          unsupportedAssumptions.push(`[DevOps Automator] proposed non-3000 port; port 3000 is strictly mandated by container reverse proxy.`);
+        }
+        if ((lower.includes('container cpu throttling') || lower.includes('cgroup memory limit')) && !lower.includes('unmeasured') && !lower.includes('managed by cloud run')) {
+          unsupportedAssumptions.push(`[DevOps Automator] asserted container host metrics without acknowledging host telemetry is unmeasured in database.`);
+        }
+      }
+
+      // Phase 7: Statistical significance validation - never allow fabricated p-values
+      if (
+        (lower.includes('p < 0.05') || lower.includes('p < 0.01') || lower.includes('statistical significance') || lower.includes('confidence interval')) &&
+        !lower.includes('unavailable') &&
+        !lower.includes('not calculated') &&
+        !lower.includes('insufficient sample')
+      ) {
+        // If sample size is low or no valid experiment telemetry exists, flag fake p-value
+        if (orgCount < 10 || invoiceCount < 20) {
+          unsupportedAssumptions.push(`[${finding.agentName}] reported statistical significance/p-values without an adequate sample size or deterministic mathematical calculation.`);
+        }
+      }
+
+      // Phase 7: Demo / Synthetic data exclusion check
+      if (lower.includes('test_org_') || lower.includes('demo_') || lower.includes('mock_')) {
+        unsupportedAssumptions.push(`[${finding.agentName}] included demo/synthetic identifier in production intelligence reporting.`);
+      }
+
       if (lower.includes('conversion rate') && invoiceCount === 0) {
         contradictionsDetected.push(`[${finding.agentName}] cited conversion metrics despite 0 invoices recorded.`);
       }
     });
+
+    // Phase 7: High-impact action human confirmation enforcement
+    finding.recommendedActions?.forEach((action) => {
+      const actionTitleLower = (action.title || '').toLowerCase();
+      const actionDescLower = (action.description || '').toLowerCase();
+      const isHighImpact =
+        action.permissionLevel === 'level_3_high_impact' ||
+        actionTitleLower.includes('remind') ||
+        actionTitleLower.includes('message') ||
+        actionTitleLower.includes('whatsapp') ||
+        actionTitleLower.includes('delete') ||
+        actionTitleLower.includes('purge') ||
+        actionTitleLower.includes('disable') ||
+        actionTitleLower.includes('billing') ||
+        actionTitleLower.includes('campaign') ||
+        actionDescLower.includes('send message') ||
+        actionDescLower.includes('delete');
+
+      if (isHighImpact && action.status === 'auto_executed') {
+        unsupportedAssumptions.push(`High-impact action "${action.title}" was marked as auto_executed; must require human confirmation.`);
+      }
+    });
   });
+
+  // Phase 8: Structured Memory & Current-Data Precedence Audits
+  if (input.conflictReport && input.conflictReport.hasConflicts) {
+    input.conflictReport.conflicts.forEach((conflict) => {
+      contradictionsDetected.push(
+        `Memory Conflict: "${conflict.memoryTitle}" (${conflict.memoryClaim}) was overridden by current verified truth: ${conflict.currentDataFact}.`
+      );
+      numericalAudit.push({
+        claim: conflict.memoryClaim,
+        verified: false,
+        sourceTool: 'tool_get_structured_memory',
+        discrepancy: `Historical claim superseded by current database state: ${conflict.currentDataFact}`,
+      });
+    });
+  }
+
+  // Phase 8: Trust classification audit on retrieved memories
+  if (input.memories && input.memories.length > 0) {
+    input.memories.forEach((mem) => {
+      if (mem.verificationStatus === 'HYPOTHESIS' || mem.verificationStatus === 'INFERRED' || mem.verificationStatus === 'UNVERIFIED') {
+        // Ensure not reported as verified
+        const matchingFinding = specialistFindings.some((f) => {
+          const s = (f.summary || '').toLowerCase();
+          return s.includes(mem.title.toLowerCase()) && s.includes('proven fact');
+        });
+        if (matchingFinding) {
+          unsupportedAssumptions.push(
+            `Structured memory "${mem.title}" has trust level "${mem.verificationStatus}" and cannot be presented as a verified database fact.`
+          );
+        }
+      }
+      if (mem.status === 'invalidated' || mem.status === 'superseded' || mem.verificationStatus === 'EXPIRED') {
+        numericalAudit.push({
+          claim: `Historical Memory: ${mem.title}`,
+          verified: false,
+          sourceTool: 'tool_get_structured_memory',
+          discrepancy: mem.staleReason || `Memory status is ${mem.status}. Current verified database data has precedence.`,
+        });
+      }
+    });
+  }
 
   // 5. Compute overall confidence score
   let confidenceScore: ConfidenceScore = 'high';

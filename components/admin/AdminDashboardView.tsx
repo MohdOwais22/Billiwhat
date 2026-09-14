@@ -31,11 +31,14 @@ import {
   FileText,
   TrendingUp,
   Radio,
+  Briefcase,
+  Target,
 } from 'lucide-react';
 import { APP_NAME } from '@/config/brand';
 import { performSignOut } from '@/lib/auth/signout';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { OrganizationDetailModal } from '@/components/admin/OrganizationDetailModal';
+import { AgentControlRoomView } from '@/components/admin/AgentControlRoomView';
 import {
   PlatformHealthSnapshot,
   ProactiveAlert,
@@ -99,7 +102,7 @@ export function AdminDashboardView() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<
-    'command-center' | 'overview' | 'organizations' | 'invoices' | 'whatsapp' | 'audit' | 'diagnostics'
+    'command-center' | 'control-room' | 'overview' | 'organizations' | 'invoices' | 'whatsapp' | 'audit' | 'diagnostics'
   >('command-center');
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -277,6 +280,7 @@ export function AdminDashboardView() {
   });
 
   const suggestedPrompts = [
+    { label: "Daily CEO Brief", query: "Generate the Daily CEO Brief: business, product, finance, WhatsApp, growth, experiments, engineering, risks, and top 5 actions." },
     { label: "What's happening today?", query: "What is happening across WhatsBill today? Give me an executive overview." },
     { label: 'Any critical alerts?', query: 'Are there any critical issues, delivery failures, or abnormal activity requiring attention?' },
     { label: 'Organization health', query: 'Analyze all organizations on WhatsBill and show their activity, onboarding progress, and health.' },
@@ -349,6 +353,18 @@ export function AdminDashboardView() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>AI Assistant</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('control-room')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition cursor-pointer whitespace-nowrap ${
+                activeTab === 'control-room'
+                  ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span>Agent Control Room</span>
             </button>
 
             <button
@@ -478,6 +494,17 @@ export function AdminDashboardView() {
               <p className="text-xs text-rose-300/90 mt-0.5">{error}</p>
             </div>
           </div>
+        )}
+
+        {/* TAB: AGENT CONTROL ROOM */}
+        {activeTab === 'control-room' && (
+          <AgentControlRoomView
+            organizations={displayOrgs}
+            onNavigateToAiQuery={(query) => {
+              setActiveTab('command-center');
+              handleAskAi(query);
+            }}
+          />
         )}
 
         {/* TAB 1: AI COMMAND CENTER */}
@@ -729,6 +756,316 @@ export function AdminDashboardView() {
                     ))}
                   </div>
                 </div>
+
+                {/* PHASE 7: DAILY CEO BRIEF STRUCTURED EXECUTIVE INTELLIGENCE */}
+                {aiResponse.ceoBrief && (
+                  <div className="p-5 rounded-xl bg-[#090E1C] border border-indigo-900/50 shadow-lg space-y-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-indigo-950 pb-3 flex-wrap gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                            <span>WhatsBill Daily CEO Brief</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                              Deterministic
+                            </span>
+                          </h3>
+                          <p className="text-[11px] text-slate-400">
+                            Period: {aiResponse.ceoBrief.period} &bull; Generated: {new Date(aiResponse.ceoBrief.generatedAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-400">Data Quality:</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                          {aiResponse.ceoBrief.dataQuality.verifiedMetricsCount} Verified Metrics
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Executive Summary Cards */}
+                    <div className="p-4 rounded-xl bg-slate-950/80 border border-indigo-900/40 space-y-3">
+                      <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        Executive Summary
+                      </span>
+                      <p className="text-xs sm:text-sm font-medium text-slate-100 leading-relaxed">
+                        {aiResponse.ceoBrief.executiveSummary.businessStatus}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 text-xs border-t border-slate-900">
+                        <div className="p-2.5 rounded-lg bg-[#0B1020] border border-slate-800">
+                          <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider block">Positive Signal</span>
+                          <span className="text-slate-200 text-[11px]">{aiResponse.ceoBrief.executiveSummary.biggestPositiveSignal}</span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-[#0B1020] border border-slate-800">
+                          <span className="text-[10px] font-semibold text-rose-400 uppercase tracking-wider block">Primary Risk</span>
+                          <span className="text-slate-200 text-[11px]">{aiResponse.ceoBrief.executiveSummary.biggestRisk}</span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-[#0B1020] border border-slate-800">
+                          <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider block">Key Opportunity</span>
+                          <span className="text-slate-200 text-[11px]">{aiResponse.ceoBrief.executiveSummary.biggestOpportunity}</span>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-[#0B1020] border border-slate-800">
+                          <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider block">Top Action</span>
+                          <span className="text-slate-200 text-[11px]">{aiResponse.ceoBrief.executiveSummary.mostImportantAction}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 8 Business Pillars Bento Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                      {/* 1. Business */}
+                      <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+                            Business & Revenue
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-mono">
+                            {aiResponse.ceoBrief.business.realizationRate.value}% Realization
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-slate-300">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Total Billed:</span>
+                            <span className="font-medium text-white">₹{aiResponse.ceoBrief.business.totalBilled.value.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Total Collected:</span>
+                            <span className="font-medium text-emerald-300">₹{aiResponse.ceoBrief.business.totalCollected.value.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Outstanding:</span>
+                            <span className="font-medium text-amber-300">₹{aiResponse.ceoBrief.business.outstanding.value.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Organizations:</span>
+                            <span>{aiResponse.ceoBrief.business.activeOrganizations.value} active / {aiResponse.ceoBrief.business.totalOrganizations.value} total</span>
+                          </div>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono">
+                          Source: {aiResponse.ceoBrief.business.totalBilled.source}
+                        </div>
+                      </div>
+
+                      {/* 2. Product */}
+                      <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <Cpu className="w-3.5 h-3.5 text-blue-400" />
+                            Product Adoption
+                          </span>
+                          <span className="text-[10px] text-blue-400 font-mono">
+                            {aiResponse.ceoBrief.product.invoiceCreationAdoption.value}% Adoption
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-slate-300">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">WhatsApp PDF Rate:</span>
+                            <span className="font-medium text-white">{aiResponse.ceoBrief.product.whatsappPdfUsageRate.value}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Ledger Tracking:</span>
+                            <span className="font-medium text-white">{aiResponse.ceoBrief.product.customerLedgerUsageRate.value}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Receivables Views:</span>
+                            <span className="font-medium text-white">{aiResponse.ceoBrief.product.receivablesUsageRate.value}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Onboarding Finish:</span>
+                            <span className="font-medium text-white">{aiResponse.ceoBrief.product.onboardingCompletionRate.value}%</span>
+                          </div>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono">
+                          Source: {aiResponse.ceoBrief.product.invoiceCreationAdoption.source}
+                        </div>
+                      </div>
+
+                      {/* 3. Finance & Aging */}
+                      <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                            Finance & Aging
+                          </span>
+                          <span className="text-[10px] text-amber-400 font-mono">
+                            Overdue: ₹{aiResponse.ceoBrief.finance.overdue.value.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-slate-300">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">&lt;30 Days:</span>
+                            <span>₹{aiResponse.ceoBrief.finance.agingBuckets.lessThan30d.value.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">31-60 Days:</span>
+                            <span>₹{aiResponse.ceoBrief.finance.agingBuckets.thirtyOneToSixtyDays.value.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">61-90 Days:</span>
+                            <span>₹{aiResponse.ceoBrief.finance.agingBuckets.sixtyOneToNinetyDays.value.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">&gt;90 Days:</span>
+                            <span className="text-rose-400 font-medium">₹{aiResponse.ceoBrief.finance.agingBuckets.greaterThan90d.value.toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono">
+                          Concentration: {aiResponse.ceoBrief.finance.concentrationRisk.value}
+                        </div>
+                      </div>
+
+                      {/* 4. WhatsApp Operations */}
+                      <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                            WhatsApp Health
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-mono">
+                            {aiResponse.ceoBrief.whatsapp.deliveryRate.value}% Delivery
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-slate-300">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Delivered Messages:</span>
+                            <span className="font-medium text-emerald-300">{aiResponse.ceoBrief.whatsapp.delivered.value}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Failed / Bounced:</span>
+                            <span className="text-rose-400 font-medium">{aiResponse.ceoBrief.whatsapp.failed.value}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Idempotency:</span>
+                            <span className="text-slate-200">Active</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Health Status:</span>
+                            <span className="text-emerald-400 uppercase font-semibold text-[10px]">{aiResponse.ceoBrief.whatsapp.operationalHealth}</span>
+                          </div>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono">
+                          Latency: {aiResponse.ceoBrief.whatsapp.latencyObserved.value}
+                        </div>
+                      </div>
+
+                      {/* 5. Growth & Channels */}
+                      <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <Radio className="w-3.5 h-3.5 text-purple-400" />
+                            Growth & Channels
+                          </span>
+                          <span className="text-[10px] text-purple-400 font-mono">
+                            Funnel: {aiResponse.ceoBrief.growth.conversionLandingToSignup.value}%
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-slate-300">
+                          <p className="text-[11px] text-slate-300 line-clamp-2">
+                            {aiResponse.ceoBrief.growth.googleSeoStatus}
+                          </p>
+                          <div className="flex justify-between pt-1 border-t border-slate-900">
+                            <span className="text-slate-400">Signup to Invoice:</span>
+                            <span className="text-purple-300 font-medium">{aiResponse.ceoBrief.growth.conversionSignupToFirstInvoice.value}%</span>
+                          </div>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono">
+                          Zero fake metrics: Paid ad CAC/ROAS unmeasured
+                        </div>
+                      </div>
+
+                      {/* 6. Experiments */}
+                      <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                            Live Experiments
+                          </span>
+                          <span className="text-[10px] text-cyan-400 font-mono">
+                            {aiResponse.ceoBrief.experiments.running.length} Active
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 text-[11px]">
+                          {aiResponse.ceoBrief.experiments.running.slice(0, 2).map((exp, idx) => (
+                            <div key={idx} className="p-1.5 rounded bg-[#0A0F1D] border border-slate-900 space-y-0.5">
+                              <span className="font-medium text-slate-200 block">{exp.title}</span>
+                              <span className="text-[10px] text-slate-400 block">{exp.primaryMetric}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono">
+                          Statistical integrity: No fabricated p-values
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Top 5 Recommended Actions */}
+                    <div className="p-4 rounded-xl bg-slate-950/80 border border-indigo-950 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Target className="w-3.5 h-3.5 text-indigo-400" />
+                          Top 5 Recommended Actions (Prioritized)
+                        </span>
+                        <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Human Approval Enforced
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {aiResponse.ceoBrief.topActions.map((action, idx) => (
+                          <div
+                            key={action.id || idx}
+                            className="p-3 rounded-lg bg-[#0D1426] border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                                  action.priority === 'P0' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                                  action.priority === 'P1' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                  'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                }`}>
+                                  {action.priority} &bull; Score {action.score}
+                                </span>
+                                <h4 className="text-xs font-semibold text-white">{action.title}</h4>
+                                {action.requiresApproval && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    Requires Human Approval
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-300 leading-snug">{action.rationale}</p>
+                              <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                                <span>Impact: {action.expectedImpact}</span>
+                                <span>Effort: {action.effort}</span>
+                                <span>Evidence: {action.evidence}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Unknowns & Data Quality Footer */}
+                    <div className="p-3.5 rounded-lg bg-[#0B0F1C] border border-slate-800 text-[11px] space-y-2 text-slate-400">
+                      <span className="font-semibold text-slate-300 text-[10px] uppercase tracking-wider block">
+                        Telemetry Boundaries & Data Quality Notice
+                      </span>
+                      <ul className="list-disc list-inside space-y-0.5 text-[10px]">
+                        {aiResponse.ceoBrief.unknowns.slice(0, 3).map((u, i) => (
+                          <li key={i}>{u}</li>
+                        ))}
+                      </ul>
+                      <p className="text-[10px] text-slate-500 italic pt-1 border-t border-slate-900">
+                        {aiResponse.ceoBrief.finance.prohibitedMetricsNotice}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* AI Management Team Intelligence: Specialists & Reality Checker */}
                 {(aiResponse.specialistContributions || aiResponse.realityCheck) && (

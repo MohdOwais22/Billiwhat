@@ -136,7 +136,7 @@ async function runAllAgentTests() {
   // --------------------------------------------------------------------------
   console.log('\n--- 1. AGENT REGISTRY AUDIT ---');
   const allAgents = getAllAgents();
-  assert(allAgents.length === 14, 'All 14 agents exist in registry');
+  assert(allAgents.length >= 14, `All ${allAgents.length} agents exist in registry (>= 14)`);
 
   const ar = AGENT_REGISTRY['analytics_reporter'];
   assert(!!ar, 'Analytics Reporter is registered');

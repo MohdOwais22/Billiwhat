@@ -43,23 +43,28 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
   const [canceling, setCanceling] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const planId: PlanId = (subscription.plan as PlanId) || 'free';
+  const planId: PlanId = (subscription?.plan as PlanId) || 'free';
   const planConfig = PLAN_CONFIG[planId] || PLAN_CONFIG.free;
 
-  const maxInvoices = subscription.max_invoices_per_month || planConfig.limits.invoicesPerMonth;
-  const maxTeam = subscription.max_team_members || planConfig.limits.maxTeamMembers;
-  const maxWhatsapp = subscription.max_whatsapp_messages_per_month || planConfig.limits.whatsappMessagesPerMonth;
-  const maxAi = subscription.max_ai_drafts_per_month || planConfig.limits.aiInvoiceDraftsPerMonth;
+  const maxInvoices = subscription?.max_invoices_per_month || planConfig.limits.invoicesPerMonth;
+  const maxTeam = subscription?.max_team_members || planConfig.limits.maxTeamMembers;
+  const maxWhatsapp = subscription?.max_whatsapp_messages_per_month || planConfig.limits.whatsappMessagesPerMonth;
+  const maxAi = subscription?.max_ai_drafts_per_month || planConfig.limits.aiInvoiceDraftsPerMonth;
 
-  const invoicePercent = Math.min(100, Math.round((subscription.current_invoice_count / maxInvoices) * 100));
-  const memberPercent = Math.min(100, Math.round((subscription.current_member_count / maxTeam) * 100));
+  const currentInvoices = subscription?.current_invoice_count ?? 0;
+  const currentMembers = subscription?.current_member_count ?? 1;
+  const currentWhatsapp = subscription?.current_whatsapp_count ?? 0;
+  const currentAi = subscription?.current_ai_draft_count ?? 0;
+
+  const invoicePercent = Math.min(100, Math.round((currentInvoices / maxInvoices) * 100));
+  const memberPercent = Math.min(100, Math.round((currentMembers / maxTeam) * 100));
   const whatsappPercent = Math.min(
     100,
-    Math.round(((subscription.current_whatsapp_count || 0) / maxWhatsapp) * 100)
+    Math.round((currentWhatsapp / maxWhatsapp) * 100)
   );
-  const aiPercent = Math.min(100, Math.round(((subscription.current_ai_draft_count || 0) / maxAi) * 100));
+  const aiPercent = Math.min(100, Math.round((currentAi / maxAi) * 100));
 
-  const isTeamOverLimit = subscription.current_member_count > maxTeam;
+  const isTeamOverLimit = currentMembers > maxTeam;
 
   async function handlePlanChange(targetPlan: PlanId) {
     setChangingPlan(targetPlan);
@@ -71,6 +76,10 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'change_plan',
+          payload: {
+            plan: targetPlan,
+            billing_interval: selectedBillingInterval,
+          },
           plan: targetPlan,
           billing_interval: selectedBillingInterval,
         }),
@@ -102,7 +111,10 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel_subscription' }),
+        body: JSON.stringify({
+          action: 'cancel_subscription',
+          payload: {},
+        }),
       });
 
       const data = await res.json();
@@ -129,54 +141,63 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
       description: 'HSN, CGST, SGST & IGST compliant tax invoice formatting',
       included: true,
       badge: 'Active',
+      icon: Receipt,
     },
     {
       name: 'Dynamic UPI QR Generation',
       description: 'Scannable NPCI-compliant payment QR codes on every bill',
       included: true,
       badge: 'Active',
+      icon: QrCode,
     },
     {
       name: 'All 6 Invoice Print Themes',
       description: 'Professional themes: Ledger, Modern, Retail, Minimal & more',
       included: planConfig.limits.allowedThemesCount >= 6,
       badge: planConfig.limits.allowedThemesCount >= 6 ? 'Active' : 'Pro & Biz',
+      icon: Palette,
     },
     {
       name: 'Whitelabel (No Watermark)',
       description: 'Remove WhatsBill branding for 100% merchant-branded invoices',
       included: planConfig.features.removeWatermark,
       badge: planConfig.features.removeWatermark ? 'Active' : 'Pro & Biz',
+      icon: ShieldCheck,
     },
     {
       name: 'GSTR-1 & Raw Financial Exports',
       description: 'One-click CSV & Excel exports ready for CA filing',
       included: planConfig.features.rawDataExports,
       badge: planConfig.features.rawDataExports ? 'Active' : 'Pro & Biz',
+      icon: FileSpreadsheet,
     },
     {
       name: 'Automated WhatsApp Reminders',
       description: 'Scheduled overdue payment nudges with 1-tap payment links',
       included: planConfig.features.batchReminders,
       badge: planConfig.features.batchReminders ? 'Active' : 'Pro & Biz',
+      icon: Send,
     },
     {
       name: '30/60/90-Day Aging & Risk Scores',
       description: 'Deep customer receivables intelligence & credit health',
       included: planConfig.features.advancedAging,
       badge: planConfig.features.advancedAging ? 'Active' : 'Business',
+      icon: Clock,
     },
     {
       name: 'CA / Multi-Branch Workspace Hub',
       description: 'Manage up to 5 distinct businesses under a single login',
       included: planConfig.features.caMultiClientHub,
       badge: planConfig.features.caMultiClientHub ? 'Active' : 'Business',
+      icon: Building2,
     },
     {
       name: 'Priority Phone & Chat Support',
       description: 'Dedicated merchant desk and priority issue escalation',
       included: planConfig.features.prioritySupport,
       badge: planConfig.features.prioritySupport ? 'Active' : 'Pro & Biz',
+      icon: Headphones,
     },
   ];
 
@@ -218,7 +239,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
           </div>
 
           <div className="flex items-center gap-2.5">
-            {subscription.cancel_at_period_end ? (
+            {subscription?.cancel_at_period_end ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
                 Cancels at Period End
               </span>
@@ -251,7 +272,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                   {planConfig.name.toUpperCase()} TIER
                 </span>
                 <span className="text-xs text-slate-300 font-medium px-2.5 py-1 rounded-full bg-white/10 border border-white/10">
-                  {subscription.billing_cycle === 'yearly' ? 'Annual Billing' : 'Monthly Billing'}
+                  {subscription?.billing_cycle === 'yearly' ? 'Annual Billing' : 'Monthly Billing'}
                 </span>
               </div>
 
@@ -276,7 +297,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {planId === 'free'
                     ? 'Forever Free • No renewal date'
-                    : subscription.current_period_end
+                    : subscription?.current_period_end
                     ? `Active until ${new Date(subscription.current_period_end).toLocaleDateString('en-IN', {
                         day: 'numeric',
                         month: 'short',
@@ -331,7 +352,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                 <div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                      {subscription.current_invoice_count}
+                      {currentInvoices}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">
                       / {maxInvoices.toLocaleString()}
@@ -349,10 +370,10 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                 </div>
 
                 <div className="text-[11px] text-slate-500 font-medium">
-                  {subscription.current_invoice_count >= maxInvoices ? (
+                  {currentInvoices >= maxInvoices ? (
                     <span className="text-rose-600 font-bold">Quota reached • Upgrade to continue</span>
                   ) : (
-                    <span>{Math.max(0, maxInvoices - subscription.current_invoice_count)} remaining this month</span>
+                    <span>{Math.max(0, maxInvoices - currentInvoices)} remaining this month</span>
                   )}
                 </div>
               </div>
@@ -374,7 +395,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                 <div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                      {subscription.current_whatsapp_count || 0}
+                      {currentWhatsapp}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">
                       / {maxWhatsapp.toLocaleString()}
@@ -411,7 +432,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                 <div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                      {subscription.current_ai_draft_count || 0}
+                      {currentAi}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">
                       / {maxAi.toLocaleString()}
@@ -454,7 +475,7 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
                 <div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                      {subscription.current_member_count}
+                      {currentMembers}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">/ {maxTeam}</span>
                   </div>
@@ -508,57 +529,75 @@ export function SubscriptionSection({ subscription, onRefresh }: SubscriptionSec
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              {capabilities.map((feat, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    if (!feat.included) setIsUpgradeModalOpen(true);
-                  }}
-                  className={`p-3 rounded-xl border transition-all flex items-start gap-2.5 ${
-                    feat.included
-                      ? 'bg-emerald-50/40 border-emerald-200/80 text-slate-800'
-                      : 'bg-slate-50/70 border-slate-200/80 text-slate-600 hover:border-slate-300 cursor-pointer'
-                  }`}
-                >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {capabilities.map((feat, idx) => {
+                const IconComponent = feat.icon;
+                return (
                   <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    key={idx}
+                    onClick={() => {
+                      if (!feat.included) setIsUpgradeModalOpen(true);
+                    }}
+                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between group ${
                       feat.included
-                        ? 'bg-emerald-600 text-white shadow-2xs'
-                        : 'bg-slate-200 text-slate-500'
+                        ? 'bg-emerald-50/30 border-emerald-200/90 text-slate-800'
+                        : 'bg-slate-50/70 border-slate-200/90 text-slate-600 hover:border-slate-300 hover:bg-slate-100/60 cursor-pointer shadow-2xs hover:shadow-xs'
                     }`}
                   >
-                    {feat.included ? (
-                      <Check className="w-3 h-3 stroke-[3]" />
-                    ) : (
-                      <Lock className="w-2.5 h-2.5" />
+                    <div className="space-y-3">
+                      {/* Top Row: Icon Container on Left, Plan Badge on Right */}
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            feat.included
+                              ? 'bg-emerald-600 text-white shadow-2xs'
+                              : 'bg-slate-200/80 text-slate-600'
+                          }`}
+                        >
+                          {feat.included ? (
+                            <Check className="w-4 h-4 stroke-[3]" />
+                          ) : (
+                            <Lock className="w-3.5 h-3.5" />
+                          )}
+                        </div>
+
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${
+                            feat.included
+                              ? 'bg-emerald-100 border-emerald-200 text-emerald-800'
+                              : 'bg-white border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {feat.badge}
+                        </span>
+                      </div>
+
+                      {/* Content: Title with full card width and clear description */}
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4
+                            className={`font-bold text-xs sm:text-sm tracking-tight leading-snug ${
+                              feat.included ? 'text-slate-900' : 'text-slate-800'
+                            }`}
+                          >
+                            {feat.name}
+                          </h4>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                          {feat.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {!feat.included && (
+                      <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-emerald-700 font-semibold group-hover:text-emerald-800">
+                        <span>Click to upgrade</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span
-                        className={`font-semibold text-xs leading-snug ${
-                          feat.included ? 'text-slate-900' : 'text-slate-700'
-                        }`}
-                      >
-                        {feat.name}
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                          feat.included
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        {feat.badge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">
-                      {feat.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

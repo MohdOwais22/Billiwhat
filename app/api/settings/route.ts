@@ -228,7 +228,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { action, payload } = body;
+    const action = body?.action;
+    const payload = (body?.payload && typeof body.payload === 'object') ? body.payload : (body || {});
 
     // 1. Verify user's membership and role in organization
     const { data: membership, error: memErr } = await adminSupabase
@@ -789,15 +790,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden: Only organization owners can change the subscription plan' }, { status: 403 });
       }
 
-      const { plan, billing_interval } = payload;
-      if (!plan || !['free', 'pro', 'business'].includes(plan)) {
+      const targetPlan = payload?.plan || body?.plan;
+      const billingInterval = payload?.billing_interval || body?.billing_interval;
+      if (!targetPlan || !['free', 'pro', 'business'].includes(targetPlan)) {
         return NextResponse.json({ error: 'Invalid plan. Must be free, pro, or business.' }, { status: 400 });
       }
 
       await updateOrganizationPlan({
         organizationId: orgId,
-        targetPlan: plan,
-        billingInterval: billing_interval === 'yearly' ? 'yearly' : 'monthly',
+        targetPlan: targetPlan,
+        billingInterval: billingInterval === 'yearly' ? 'yearly' : 'monthly',
       });
 
       const newEntitlements = await getOrganizationEntitlements(orgId);

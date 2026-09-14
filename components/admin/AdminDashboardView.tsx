@@ -98,6 +98,7 @@ export function AdminDashboardView() {
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [deletingOrgId, setDeletingOrgId] = useState<string | null>(null);
+  const [isPurging, setIsPurging] = useState(false);
   const [actionNotice, setActionNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -262,6 +263,38 @@ export function AdminDashboardView() {
       });
     } finally {
       setDeletingOrgId(null);
+    }
+  };
+
+  const handlePurgeDummyOrgs = async () => {
+    if (!window.confirm('Are you sure you want to purge all test and dummy organizations from the database?')) {
+      return;
+    }
+    try {
+      setIsPurging(true);
+      setActionNotice(null);
+      const res = await fetch('/api/admin/purge-dummy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to purge dummy organizations');
+      }
+      setActionNotice({
+        type: 'success',
+        text: json.message || `Purged ${json.purgedOrganizations || 0} dummy organization(s).`,
+      });
+      await Promise.all([loadAdminData(), loadOrganizationsList(), loadCommandCenterState()]);
+    } catch (err: any) {
+      console.error('Purge dummy orgs error:', err);
+      setActionNotice({
+        type: 'error',
+        text: err?.message || 'Failed to purge dummy organizations',
+      });
+    } finally {
+      setIsPurging(false);
     }
   };
 
@@ -1397,10 +1430,26 @@ export function AdminDashboardView() {
                 />
               </div>
 
-              <span className="text-xs text-slate-400 font-medium flex items-center gap-2">
-                {isLoadingOrgs && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
-                <span>Showing {filteredOrgs.length} of {displayOrgs.length} organizations</span>
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handlePurgeDummyOrgs}
+                  disabled={isPurging}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+                  title="Purge test and dummy organizations from database"
+                >
+                  {isPurging ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5 text-amber-400" />
+                  )}
+                  <span>Purge Test Data</span>
+                </button>
+
+                <span className="text-xs text-slate-400 font-medium flex items-center gap-2">
+                  {isLoadingOrgs && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
+                  <span>Showing {filteredOrgs.length} of {displayOrgs.length} organizations</span>
+                </span>
+              </div>
             </div>
 
             <div className="rounded-2xl bg-[#0D1322] border border-slate-800/80 overflow-hidden">

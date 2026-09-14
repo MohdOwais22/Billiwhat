@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. Cascade delete records tied to dummy organizations
+      await supabase.from('structured_memory').delete().in('organization_id', dummyIds);
+      await supabase.from('audit_logs').delete().in('organization_id', dummyIds);
+      await supabase.from('agent_executions').delete().in('organization_id', dummyIds);
+      await supabase.from('executive_actions').delete().in('organization_id', dummyIds);
       await supabase.from('invoices').delete().in('organization_id', dummyIds);
       await supabase.from('payments').delete().in('organization_id', dummyIds);
       await supabase.from('receivables').delete().in('organization_id', dummyIds);

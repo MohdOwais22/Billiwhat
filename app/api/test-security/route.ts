@@ -467,7 +467,23 @@ export async function GET(req: NextRequest) {
     // =========================================================================
     if (adminClient) {
       try {
-        const testOrgIds = [orgAId, orgBId].filter(Boolean) as string[];
+        // Collect explicit test IDs as well as any orphan test organizations
+        const { data: orphanOrgs } = await adminClient.from('organizations').select('id, name');
+        const orphanIds = (orphanOrgs || [])
+          .filter((o) => {
+            const name = (o.name || '').toLowerCase();
+            return (
+              name.includes('security test') ||
+              name.includes('test org') ||
+              name.includes('duplicate org') ||
+              name.includes('test idem')
+            );
+          })
+          .map((o) => o.id);
+
+        const testOrgIds = Array.from(
+          new Set([...[orgAId, orgBId].filter(Boolean) as string[], ...orphanIds])
+        );
         const testUserIds = [userAId, userBId, userCId].filter(Boolean) as string[];
 
         if (testOrgIds.length > 0) {
@@ -476,6 +492,10 @@ export async function GET(req: NextRequest) {
           if (invoiceIds.length > 0) {
             await adminClient.from('invoice_items').delete().in('invoice_id', invoiceIds);
           }
+          await adminClient.from('structured_memory').delete().in('organization_id', testOrgIds);
+          await adminClient.from('audit_logs').delete().in('organization_id', testOrgIds);
+          await adminClient.from('agent_executions').delete().in('organization_id', testOrgIds);
+          await adminClient.from('executive_actions').delete().in('organization_id', testOrgIds);
           await adminClient.from('invoices').delete().in('organization_id', testOrgIds);
           await adminClient.from('payments').delete().in('organization_id', testOrgIds);
           await adminClient.from('receivables').delete().in('organization_id', testOrgIds);

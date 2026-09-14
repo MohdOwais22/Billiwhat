@@ -424,7 +424,8 @@ async function runSecurityTests() {
     if (userIdemErr || !userIdemRes?.user) throw new Error(`Failed to create Idem User: ${userIdemErr?.message}`);
     userIdemId = userIdemRes.user.id;
 
-    const { data: sessIdem } = await adminClient.auth.signInWithPassword({ email: testEmailIdem, password: testPassword });
+    const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
+    const { data: sessIdem } = await authClient.auth.signInWithPassword({ email: testEmailIdem, password: testPassword });
     const clientIdem = createScopedClient(sessIdem.session?.access_token!);
 
     // Call RPC 1: Initial workspace creation
@@ -482,36 +483,81 @@ async function runSecurityTests() {
     console.error('Test execution error:', err);
     process.exit(1);
   } finally {
-    // CLEANUP
-    if (adminClient) {
-      try {
-        const testOrgIds = [orgAId, orgBId, orgIdemId].filter(Boolean) as string[];
-        const testUserIds = [userAId, userBId, userCId, userIdemId].filter(Boolean) as string[];
+    // CLEANUP WITH FRESH SERVICE ROLE CLIENT
+    const cleanupClient = createClient(supabaseUrl, serviceRoleKey || anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-        if (testOrgIds.length > 0) {
-          await adminClient.from('invoice_items').delete().in('invoice_id', (await adminClient.from('invoices').select('id').in('organization_id', testOrgIds)).data?.map((i) => i.id) || []);
-          await adminClient.from('invoices').delete().in('organization_id', testOrgIds);
-          await adminClient.from('payments').delete().in('organization_id', testOrgIds);
-          await adminClient.from('receivables').delete().in('organization_id', testOrgIds);
-          await adminClient.from('reminders').delete().in('organization_id', testOrgIds);
-          await adminClient.from('message_logs').delete().in('organization_id', testOrgIds);
-          await adminClient.from('gst_profiles').delete().in('organization_id', testOrgIds);
-          await adminClient.from('customers').delete().in('organization_id', testOrgIds);
-          await adminClient.from('products').delete().in('organization_id', testOrgIds);
-          await adminClient.from('organization_members').delete().in('organization_id', testOrgIds);
-          await adminClient.from('organizations').delete().in('id', testOrgIds);
-        }
+    try {
+      // Collect explicit test IDs as well as any orphan test organizations
+      const { data: orphanOrgs, error: orphanErr } = await cleanupClient.from('organizations').select('id, name');
+      const orphanIds = (orphanOrgs || [])
+        .filter((o) => {
+          const name = (o.name || '').toLowerCase();
+          return (
+            name.includes('security test') ||
+            name.includes('test org') ||
+            name.includes('duplicate org') ||
+            name.includes('test idem')
+          );
+        })
+        .map((o) => o.id);
 
-        if (testUserIds.length > 0) {
-          await adminClient.from('user_profiles').delete().in('id', testUserIds);
-          for (const uid of testUserIds) {
-            await adminClient.auth.admin.deleteUser(uid);
-          }
+      const testOrgIds = Array.from(
+        new Set([...[orgAId, orgBId, orgIdemId].filter(Boolean) as string[], ...orphanIds])
+      );
+      const testUserIds = [userAId, userBId, userCId, userIdemId].filter(Boolean) as string[];
+
+      if (testOrgIds.length > 0) {
+        await cleanupClient
+          .from('invoice_items')
+          .delete()
+          .in(
+            'invoice_id',
+            (
+              await cleanupClient.from('invoices').select('id').in('organization_id', testOrgIds)
+            ).data?.map((i) => i.id) || []
+          );
+        await cleanupClient.from('structured_memory').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('audit_logs').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('agent_executions').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('executive_actions').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('invoices').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('payments').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('receivables').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('reminders').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('message_logs').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('gst_profiles').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('customers').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('products').delete().in('organization_id', testOrgIds);
+        await cleanupClient.from('organization_members').delete().in('organization_id', testOrgIds);
+        const { error: delErr } = await cleanupClient.from('organizations').delete().in('id', testOrgIds);
+        if (delErr) {
+          console.error('Delete orgs error:', delErr);
         }
-        console.log('--- CLEANUP COMPLETE: All test artifacts removed ---');
-      } catch (cleanErr) {
-        console.error('Cleanup error:', cleanErr);
       }
+
+      if (testUserIds.length > 0) {
+        await cleanupClient.from('user_profiles').delete().in('id', testUserIds);
+        for (const uid of testUserIds) {
+          await cleanupClient.auth.admin.deleteUser(uid);
+        }
+      }
+
+      // Purge any orphan test auth users
+      const { data: userList } = await cleanupClient.auth.admin.listUsers({ perPage: 100 });
+      const orphanUsers = (userList?.users || []).filter((u) => {
+        const email = (u.email || '').toLowerCase();
+        return email.includes('@whatsbill.test') || email.startsWith('sec_');
+      });
+      for (const u of orphanUsers) {
+        await cleanupClient.from('user_profiles').delete().eq('id', u.id);
+        await cleanupClient.auth.admin.deleteUser(u.id);
+      }
+
+      console.log('--- CLEANUP COMPLETE: All test artifacts removed ---');
+    } catch (cleanErr) {
+      console.error('Cleanup error:', cleanErr);
     }
   }
 }

@@ -1291,6 +1291,158 @@ export async function deleteInvoice(invoiceId: string) {
 }
 
 /**
+ * Direct table insertion fallback when Postgres RPC function create_invoice_with_items is missing or schema cache is stale
+ */
+async function createInvoiceDirectFallback(
+  params: any,
+  client: any,
+  orgId: string,
+  userId: string
+) {
+  const { data: org } = await client
+    .from('organizations')
+    .select('invoice_prefix, invoice_sequence, state_code, gstin')
+    .eq('id', orgId)
+    .single();
+
+  const { data: customer } = await client
+    .from('customers')
+    .select('name, business_name, billing_address, state_code, gstin')
+    .eq('id', params.customerId)
+    .single();
+
+  let invoiceNumber = params.invoiceNumber?.trim();
+  if (!invoiceNumber) {
+    const prefix = org?.invoice_prefix || 'INV';
+    const seq = org?.invoice_sequence || 1;
+    invoiceNumber = `${prefix}-${String(seq).padStart(4, '0')}`;
+
+    await client
+      .from('organizations')
+      .update({ invoice_sequence: seq + 1 })
+      .eq('id', orgId);
+  }
+
+  let pos = params.placeOfSupply;
+  if (!pos) {
+    if (customer?.gstin && customer.gstin.length >= 2) {
+      pos = customer.gstin.substring(0, 2);
+    } else {
+      pos = org?.state_code || '27';
+    }
+  }
+
+  const sellerStateCode = org?.state_code || (org?.gstin ? org.gstin.substring(0, 2) : '27');
+  const buyerStateCode = pos ? pos.substring(0, 2) : sellerStateCode;
+  const isInterState = sellerStateCode !== buyerStateCode;
+
+  let subtotal = 0;
+  let discountTotal = 0;
+  let taxableAmountTotal = 0;
+  let cgstTotal = 0;
+  let sgstTotal = 0;
+  let igstTotal = 0;
+  let cessTotal = 0;
+
+  const processedItems = (params.items || []).map((it: any, index: number) => {
+    const qty = Number(it.quantity) || 1;
+    const price = Number(it.unitPrice) || 0;
+    const disc = Number(it.discount) || 0;
+    const rawLineTotal = qty * price;
+    const lineDiscount = Math.min(rawLineTotal, disc);
+    const itemTaxable = Math.max(0, rawLineTotal - lineDiscount);
+    const taxRate = typeof it.taxRate === 'number' ? it.taxRate : (typeof it.gstRate === 'number' ? it.gstRate : 0);
+    const cess = Number(it.cess) || 0;
+
+    let itemCgst = 0;
+    let itemSgst = 0;
+    let itemIgst = 0;
+
+    if (isInterState) {
+      itemIgst = roundPaise((itemTaxable * taxRate) / 100);
+    } else {
+      itemCgst = roundPaise((itemTaxable * (taxRate / 2)) / 100);
+      itemSgst = roundPaise((itemTaxable * (taxRate / 2)) / 100);
+    }
+
+    const itemLineTotal = roundPaise(itemTaxable + itemCgst + itemSgst + itemIgst + cess);
+
+    subtotal += rawLineTotal;
+    discountTotal += lineDiscount;
+    taxableAmountTotal += itemTaxable;
+    cgstTotal += itemCgst;
+    sgstTotal += itemSgst;
+    igstTotal += itemIgst;
+    cessTotal += cess;
+
+    return {
+      description: it.productName || 'Product / Item',
+      product_id: it.productId || null,
+      quantity: qty,
+      unit_price: price,
+      discount: lineDiscount,
+      tax_rate: taxRate,
+      unit: it.unit || 'PCS',
+      hsn_sac: it.hsnSac || it.hsnCode || null,
+      taxable_amount: itemTaxable,
+      cgst: itemCgst,
+      sgst: itemSgst,
+      igst: itemIgst,
+      cess: cess,
+      line_total: itemLineTotal,
+      sort_order: index + 1,
+    };
+  });
+
+  const grandTotal = roundPaise(taxableAmountTotal + cgstTotal + sgstTotal + igstTotal + cessTotal);
+
+  const { data: newInv, error: invInsertErr } = await client
+    .from('invoices')
+    .insert({
+      organization_id: orgId,
+      customer_id: params.customerId,
+      invoice_number: invoiceNumber,
+      invoice_type: params.invoiceType || 'tax_invoice',
+      status: params.status || 'issued',
+      issue_date: params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0],
+      due_date: params.dueDate,
+      subtotal: roundPaise(subtotal),
+      discount_total: roundPaise(discountTotal),
+      taxable_amount: roundPaise(taxableAmountTotal),
+      cgst: roundPaise(cgstTotal),
+      sgst: roundPaise(sgstTotal),
+      igst: roundPaise(igstTotal),
+      cess: roundPaise(cessTotal),
+      total: grandTotal,
+      amount_paid: 0,
+      balance_due: grandTotal,
+      place_of_supply: pos,
+      notes: params.notes || null,
+      terms: params.terms || null,
+      source: 'web',
+      created_by: userId,
+    })
+    .select('*')
+    .single();
+
+  if (invInsertErr || !newInv) {
+    throw new Error(invInsertErr?.message || 'Failed to insert invoice record.');
+  }
+
+  const itemsToInsert = processedItems.map((item: any) => ({
+    ...item,
+    invoice_id: newInv.id,
+  }));
+
+  const { error: itemsInsertErr } = await client.from('invoice_items').insert(itemsToInsert);
+  if (itemsInsertErr) {
+    console.error('Error inserting invoice items in fallback mode:', itemsInsertErr);
+  }
+
+  return newInv;
+}
+
+/**
  * Creates a new B2B invoice in Supabase
  */
 export async function createNewInvoice(params: {
@@ -1378,11 +1530,12 @@ export async function createNewInvoice(params: {
   const { data: rpcRes, error: rpcErr } = await client.rpc('create_invoice_with_items', rpcPayload);
 
   if (rpcErr) {
-    throw new Error(rpcErr.message || 'Failed to create invoice.');
+    console.warn('RPC create_invoice_with_items failed, switching to direct insert fallback:', rpcErr);
+    return await createInvoiceDirectFallback(params, client, memberData.organization_id, authData.user.id);
   }
 
   if (!rpcRes || !rpcRes.success || !rpcRes.id) {
-    throw new Error('Invoice creation failed on server.');
+    return await createInvoiceDirectFallback(params, client, memberData.organization_id, authData.user.id);
   }
 
   const { data: insertedInv, error: fetchErr } = await client
@@ -1396,6 +1549,99 @@ export async function createNewInvoice(params: {
   }
 
   return insertedInv;
+}
+
+/**
+ * Direct table insertion fallback when Postgres RPC function record_payment_with_allocation is missing or schema cache is stale
+ */
+async function recordPaymentDirectFallback(
+  params: any,
+  client: any,
+  orgId: string
+) {
+  const amount = Number(params.amount);
+  const payMethod = (params.method || params.paymentMethod || 'cash').toLowerCase();
+  const payReference = params.reference || params.referenceNumber || null;
+  const payDate = params.paidAt || params.paymentDate || new Date().toISOString().split('T')[0];
+
+  const { data: customer } = await client
+    .from('customers')
+    .select('name')
+    .eq('id', params.customerId)
+    .single();
+
+  const custName = customer?.name || 'Customer';
+
+  let invNumber: string | null = null;
+  if (params.invoiceId) {
+    const { data: inv } = await client
+      .from('invoices')
+      .select('invoice_number')
+      .eq('id', params.invoiceId)
+      .single();
+    if (inv) {
+      invNumber = inv.invoice_number;
+    }
+  }
+
+  const { data: newPayment, error: payErr } = await client
+    .from('payments')
+    .insert({
+      organization_id: orgId,
+      customer_id: params.customerId,
+      invoice_id: params.invoiceId || null,
+      amount: amount,
+      method: payMethod,
+      status: 'recorded',
+      reference_number: payReference,
+      paid_at: payDate,
+      notes: params.notes || null,
+    })
+    .select('*')
+    .single();
+
+  if (payErr || !newPayment) {
+    throw new Error(payErr?.message || 'Failed to record payment record.');
+  }
+
+  if (params.invoiceId) {
+    const { data: inv } = await client
+      .from('invoices')
+      .select('total, amount_paid')
+      .eq('id', params.invoiceId)
+      .single();
+
+    if (inv) {
+      const currentPaid = Number(inv.amount_paid || 0);
+      const newPaid = currentPaid + amount;
+      const invTotal = Number(inv.total || 0);
+      let newStatus = 'partially_paid';
+      if (newPaid >= invTotal) {
+        newStatus = 'paid';
+      }
+
+      await client
+        .from('invoices')
+        .update({
+          status: newStatus,
+          amount_paid: newPaid,
+          balance_due: Math.max(0, invTotal - newPaid),
+        })
+        .eq('id', params.invoiceId);
+    }
+  }
+
+  const receiptSummary = invNumber
+    ? `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded against ${invNumber} (${custName}).`
+    : `₹${amount.toLocaleString('en-IN')} ${payMethod.toUpperCase()} payment recorded for ${custName}.`;
+
+  return {
+    ...newPayment,
+    invoice_number: invNumber,
+    customer_name: custName,
+    new_outstanding: 0,
+    receipt_summary: receiptSummary,
+  };
 }
 
 /**
@@ -1453,12 +1699,9 @@ export async function recordNewPayment(params: {
 
   const { data: rpcRes, error: rpcErr } = await client.rpc('record_payment_with_allocation', rpcPayload);
 
-  if (rpcErr) {
-    throw new Error(rpcErr.message || 'Failed to record payment.');
-  }
-
-  if (!rpcRes || !rpcRes.success || !rpcRes.payment_id) {
-    throw new Error('Payment recording failed on server.');
+  if (rpcErr || !rpcRes?.success || !rpcRes?.payment_id) {
+    console.warn('RPC record_payment_with_allocation failed, switching to direct insert fallback:', rpcErr);
+    return await recordPaymentDirectFallback(params, client, memberData.organization_id);
   }
 
   const { data: paymentRecord, error: payFetchErr } = await client

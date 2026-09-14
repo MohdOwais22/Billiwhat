@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { InvoiceTheme } from '@/lib/themes/types';
-import { Check, Eye, Layers } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 interface InvoiceThemePreviewProps {
   theme: InvoiceTheme;
@@ -15,72 +15,58 @@ export function InvoiceThemePreview({
   theme,
   isSelected,
   onSelect,
-  onPreview,
 }: InvoiceThemePreviewProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={() => onSelect(theme)}
-      className={`group relative bg-white rounded-xl border transition-all cursor-pointer overflow-hidden p-3.5 flex flex-col justify-between ${
+      className={`relative text-left w-full p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
         isSelected
-          ? 'border-emerald-600 ring-2 ring-emerald-500/30 shadow-md bg-emerald-50/10'
-          : 'border-slate-200 hover:border-slate-400 hover:shadow-sm'
+          ? 'bg-emerald-50/40 border-emerald-600 ring-2 ring-emerald-500/20 shadow-xs'
+          : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-2xs'
       }`}
     >
-      {/* Selection Pill */}
-      {isSelected && (
-        <div className="absolute top-3 right-3 bg-emerald-600 text-white rounded-full p-1 z-10 shadow-xs">
-          <Check className="w-3.5 h-3.5" />
-        </div>
-      )}
-
-      <div>
-        {/* Color Accent Preview Header Box */}
-        <div
-          className="h-20 rounded-lg w-full mb-3 p-2 flex flex-col justify-between border border-slate-200/80 shadow-2xs relative overflow-hidden"
-          style={{ backgroundColor: `${theme.previewAccentColor}10` }}
-        >
-          <div
-            className="h-1.5 rounded-full w-1/3"
+      <div className="flex items-start justify-between gap-2 w-full">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* Accent Color Dot */}
+          <span
+            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs border border-slate-300"
             style={{ backgroundColor: theme.previewAccentColor }}
-          ></div>
-          <div className="space-y-1">
-            <div className="h-1 bg-slate-300 rounded-full w-3/4"></div>
-            <div className="h-1 bg-slate-200 rounded-full w-1/2"></div>
-          </div>
-          <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 uppercase font-bold">
-            <span>{theme.paperSize}</span>
-            <span className="capitalize">{theme.density}</span>
+          />
+
+          <div className="min-w-0">
+            {/* Theme Name */}
+            <h3 className="font-extrabold text-slate-900 text-sm truncate leading-snug">
+              {theme.name}
+            </h3>
+            {/* Paper Size & Category Badges */}
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wider">
+                {theme.paperSize}
+              </span>
+              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wider">
+                {theme.category}
+              </span>
+            </div>
           </div>
         </div>
 
-        <h3 className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition">
-          {theme.name}
-        </h3>
-        <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-          {theme.description}
-        </p>
+        {/* Selection Indicator */}
+        <div
+          className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition ${
+            isSelected
+              ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+              : 'border-slate-300 bg-slate-50'
+          }`}
+        >
+          {isSelected && <Check className="w-3.5 h-3.5" />}
+        </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-        <span className="inline-flex items-center gap-1 font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
-          <Layers className="w-3 h-3" />
-          {theme.category}
-        </span>
-
-        {onPreview && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onPreview(theme);
-            }}
-            className="inline-flex items-center gap-1 text-slate-600 hover:text-emerald-600 font-bold hover:underline transition"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Live View</span>
-          </button>
-        )}
-      </div>
-    </div>
+      {/* Short Subtitle / Description */}
+      <p className="text-[11px] text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+        {theme.description}
+      </p>
+    </button>
   );
 }

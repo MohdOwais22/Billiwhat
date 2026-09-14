@@ -155,7 +155,7 @@ export function ThemeSelectorModal({
             </div>
 
             {/* Grid of Theme Cards */}
-            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {filteredThemes.map((theme) => (
                 <InvoiceThemePreview
                   key={theme.id}
@@ -163,9 +163,6 @@ export function ThemeSelectorModal({
                   isSelected={selectedThemeId === theme.id}
                   onSelect={(t) => {
                     setSelectedThemeId(t.id);
-                    setPreviewingTheme(t);
-                  }}
-                  onPreview={(t) => {
                     setPreviewingTheme(t);
                   }}
                 />

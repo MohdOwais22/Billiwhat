@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Loader2,
   X,
-  Mail,
+  Phone,
 } from 'lucide-react';
 
 interface TeamSectionProps {
@@ -61,7 +61,7 @@ export function TeamSection({
   canEdit,
 }: TeamSectionProps) {
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<OrganizationMember['role']>('accountant');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,11 +70,43 @@ export function TeamSection({
   const [statusMessage, setStatusMessage] = useState('');
   const [operatingMemberId, setOperatingMemberId] = useState<string | null>(null);
 
+  const formatMemberPhone = (phone?: string, email?: string) => {
+    if (phone) {
+      const digits = phone.replace(/\D/g, '');
+      const ten = digits.slice(-10);
+      return `+91 ${ten.slice(0, 5)} ${ten.slice(5)}`;
+    }
+    if (email) {
+      const m = email.match(/(?:master|phone|user)_91(\d{10})/);
+      if (m) {
+        return `+91 ${m[1].slice(0, 5)} ${m[1].slice(5)}`;
+      }
+      if (!email.endsWith('@whatsbill.internal')) {
+        return email;
+      }
+    }
+    return 'Mobile Login';
+  };
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    const inputVal = inviteEmail.trim();
-    if (!inputVal) {
-      setModalError('Please enter an email address or mobile number.');
+    const rawInput = invitePhone.trim();
+    const digits = rawInput.replace(/\D/g, '');
+    let cleanPhone = '';
+
+    if (digits.length === 10) {
+      cleanPhone = digits;
+    } else if (digits.length === 12 && digits.startsWith('91')) {
+      cleanPhone = digits.slice(2);
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      cleanPhone = digits.slice(1);
+    } else {
+      setModalError('Please enter a valid 10-digit mobile number (e.g. 9876543210).');
+      return;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setModalError('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -90,7 +122,7 @@ export function TeamSection({
         body: JSON.stringify({
           action: 'invite_member',
           payload: {
-            email: inputVal,
+            phone: cleanPhone,
             display_name: inviteName.trim() || undefined,
             role: inviteRole,
           },
@@ -103,8 +135,8 @@ export function TeamSection({
       }
 
       setActionStatus('success');
-      setStatusMessage(data.message || `Member ${inputVal} successfully added to team.`);
-      setInviteEmail('');
+      setStatusMessage(data.message || `Member with mobile +91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)} successfully added.`);
+      setInvitePhone('');
       setInviteName('');
       setModalError(null);
       setShowInviteModal(false);
@@ -215,7 +247,7 @@ export function TeamSection({
             id="invite-member-btn"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Add / Invite Member</span>
+            <span>Add Member (Phone)</span>
           </button>
         )}
       </div>
@@ -257,7 +289,7 @@ export function TeamSection({
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center text-xs">
-                          {member.display_name?.charAt(0) || member.email?.charAt(0)?.toUpperCase() || 'U'}
+                          {member.display_name?.charAt(0) || 'M'}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -270,7 +302,10 @@ export function TeamSection({
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-500">{member.email || member.phone || 'Active Member'}</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{formatMemberPhone(member.phone, member.email)}</span>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -352,10 +387,15 @@ export function TeamSection({
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-emerald-600" />
-                Add Organization Member
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-emerald-600" />
+                  Add Team Member
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Add staff by their 10-digit mobile number for instant OTP login
+                </p>
+              </div>
               <button
                 onClick={() => setShowInviteModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
@@ -390,23 +430,28 @@ export function TeamSection({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="invite-email">
-                  Email Address or Mobile Number <span className="text-rose-500">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="invite-phone">
+                  Mobile Number <span className="text-rose-500">*</span>
                 </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition bg-white">
+                  <span className="px-3 py-2 bg-slate-50 border-r border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shrink-0 select-none">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    +91
+                  </span>
                   <input
-                    id="invite-email"
-                    type="text"
+                    id="invite-phone"
+                    type="tel"
+                    inputMode="numeric"
                     required
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="e.g. accountant@company.com or 9876543210"
-                    className="w-full pl-9 pr-3.5 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                    value={invitePhone}
+                    onChange={(e) => setInvitePhone(e.target.value)}
+                    placeholder="98765 43210"
+                    maxLength={14}
+                    className="w-full px-3 py-2 text-xs bg-white text-slate-900 placeholder:text-slate-400 focus:outline-hidden"
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Enter an email address or 10-digit mobile number.
+                  Enter 10-digit Indian mobile number. The member can log in using OTP with this number.
                 </p>
               </div>
 

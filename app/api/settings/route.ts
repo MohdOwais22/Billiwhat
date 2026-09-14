@@ -118,9 +118,14 @@ export async function GET(req: NextRequest) {
         const { data: authUsersRes } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
         if (authUsersRes?.users) {
           authUsersRes.users.forEach((u: any) => {
+            let extractedPhone = u.phone || u.user_metadata?.phone;
+            if (!extractedPhone && u.email) {
+              const m = u.email.match(/(?:master|phone|user)_91(\d{10})/);
+              if (m) extractedPhone = `+91${m[1]}`;
+            }
             authUserMap[u.id] = {
               email: u.email,
-              phone: u.phone,
+              phone: extractedPhone,
               display_name: u.user_metadata?.display_name || u.user_metadata?.full_name,
             };
           });
@@ -514,9 +519,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden: Only owners and admins can invite team members' }, { status: 403 });
       }
 
-      const { email: rawEmail, role, display_name } = payload;
-      if (!rawEmail || !role) {
-        return NextResponse.json({ error: 'Email address or mobile number and role are required' }, { status: 400 });
+      const { phone: rawPhone, email: rawEmail, role, display_name } = payload;
+      const inputVal = String(rawPhone || rawEmail || '').trim();
+
+      if (!inputVal || !role) {
+        return NextResponse.json({ error: 'Mobile number and access role are required' }, { status: 400 });
       }
 
       // Check current member count
@@ -529,73 +536,88 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Team member limit reached for current plan (10 members max).' }, { status: 400 });
       }
 
-      const rawInput = rawEmail.trim();
-      let targetEmail = '';
-      let targetPhone: string | null = null;
+      // Validate 10-digit mobile number
+      const digits = inputVal.replace(/\D/g, '');
+      let tenDigits = '';
 
-      if (rawInput.includes('@')) {
-        targetEmail = rawInput.toLowerCase();
+      if (digits.length === 10) {
+        tenDigits = digits;
+      } else if (digits.length === 12 && digits.startsWith('91')) {
+        tenDigits = digits.slice(2);
+      } else if (digits.length === 11 && digits.startsWith('0')) {
+        tenDigits = digits.slice(1);
       } else {
-        const digits = rawInput.replace(/[^0-9]/g, '');
-        if (digits.length >= 10) {
-          const tenDigits = digits.slice(-10);
-          targetPhone = `+91${tenDigits}`;
-          targetEmail = `phone_91${tenDigits}@whatsbill.internal`;
-        } else {
-          return NextResponse.json({ error: 'Please enter a valid email address or 10-digit mobile number' }, { status: 400 });
-        }
+        return NextResponse.json({
+          error: 'Please enter a valid 10-digit mobile number (e.g. 9876543210)',
+        }, { status: 400 });
       }
 
-      const cleanDisplayName = display_name?.trim() || targetEmail.split('@')[0];
+      if (!/^[6-9]\d{9}$/.test(tenDigits)) {
+        return NextResponse.json({
+          error: 'Please enter a valid Indian mobile number starting with 6, 7, 8, or 9',
+        }, { status: 400 });
+      }
 
-      // 1. Check if user already exists in Supabase Auth
+      const standardPhone = `+91${tenDigits}`;
+      const normalizedPhone = `91${tenDigits}`;
+      const internalEmail = `phone_${normalizedPhone}@whatsbill.internal`;
+      const cleanDisplayName = display_name?.trim() || `Member ${tenDigits.slice(-4)}`;
+
+      // 1. Check if user already exists in Supabase Auth by phone or internal email
       let targetUserId: string | null = null;
       try {
         const { data: userListData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
         const matchedUser = userListData?.users?.find(
           (u: any) =>
-            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) ||
-            (targetPhone && u.phone === targetPhone)
+            u.phone === standardPhone ||
+            u.phone === normalizedPhone ||
+            u.user_metadata?.phone === standardPhone ||
+            u.email?.toLowerCase() === internalEmail.toLowerCase() ||
+            u.email?.toLowerCase() === `master_${normalizedPhone}@whatsbill.internal`
         );
 
         if (matchedUser) {
           targetUserId = matchedUser.id;
         }
       } catch (listErr) {
-        console.warn('Could not list users for duplicate check:', listErr);
+        console.warn('Could not list users for duplicate phone check:', listErr);
       }
 
-      // 2. If user not found in Auth, create them in Auth
+      // 2. If user not found in Auth, create them in Auth with phone verified
       if (!targetUserId) {
-        const tempPassword = `Wb#${Math.random().toString(36).slice(2, 8)}${Math.floor(1000 + Math.random() * 9000)}!`;
+        const sessionPassword = `Wb#${Math.random().toString(36).slice(2, 8)}${Math.floor(1000 + Math.random() * 9000)}!`;
         try {
           const { data: createdAuth, error: createErr } = await adminSupabase.auth.admin.createUser({
-            email: targetEmail,
-            password: tempPassword,
+            phone: standardPhone,
+            phone_confirm: true,
+            email: internalEmail,
             email_confirm: true,
-            phone: targetPhone || undefined,
-            phone_confirm: Boolean(targetPhone),
+            password: sessionPassword,
             user_metadata: {
+              phone: standardPhone,
               display_name: cleanDisplayName,
               full_name: cleanDisplayName,
             },
           });
 
           if (createErr) {
-            // User might have already been created or existed with case differences
+            // User might have already been created
             const { data: retryList } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
             const retryMatch = retryList?.users?.find(
               (u: any) =>
-                (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) ||
-                (targetPhone && u.phone === targetPhone)
+                u.phone === standardPhone ||
+                u.phone === normalizedPhone ||
+                u.user_metadata?.phone === standardPhone ||
+                u.email?.toLowerCase() === internalEmail.toLowerCase() ||
+                u.email?.toLowerCase() === `master_${normalizedPhone}@whatsbill.internal`
             );
 
             if (retryMatch) {
               targetUserId = retryMatch.id;
             } else {
-              console.error('Error creating auth user:', createErr);
+              console.error('Error creating auth user for phone:', createErr);
               return NextResponse.json({
-                error: `Could not register user account for ${rawInput}: ${createErr.message}`,
+                error: `Could not register user account for ${standardPhone}: ${createErr.message}`,
               }, { status: 400 });
             }
           } else if (createdAuth?.user?.id) {
@@ -623,14 +645,15 @@ export async function POST(req: NextRequest) {
 
       if (existingMember) {
         return NextResponse.json({
-          error: `User "${rawInput}" is already a member of this organization with role: ${existingMember.role}.`,
+          error: `Mobile number ${standardPhone} is already a member of this organization with role: ${existingMember.role}.`,
         }, { status: 400 });
       }
 
-      // 4. Upsert user_profiles display_name
+      // 4. Upsert user_profiles with display_name and phone
       await adminSupabase.from('user_profiles').upsert({
         id: targetUserId,
         display_name: cleanDisplayName,
+        phone: standardPhone,
         updated_at: new Date().toISOString(),
       });
 
@@ -650,14 +673,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: insertErr.message }, { status: 400 });
       }
 
+      const formattedPhoneDisplay = `+91 ${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`;
+
       return NextResponse.json({
         success: true,
-        message: `Successfully added ${cleanDisplayName} (${rawInput}) to your team as ${role}!`,
+        message: `Successfully added ${cleanDisplayName} (${formattedPhoneDisplay}) to your team as ${role}!`,
         member: {
           ...newMem,
           display_name: cleanDisplayName,
-          email: targetEmail,
-          phone: targetPhone,
+          phone: standardPhone,
+          email: internalEmail,
         },
       });
     }

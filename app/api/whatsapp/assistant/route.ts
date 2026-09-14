@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { processWhatsAppMessage } from '@/lib/services/whatsappAiService';
+import { assertCanUseAiDraft, recordBillableAction } from '@/lib/auth/entitlements';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,11 +39,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Enforce server-side AI invoice draft quota
+    try {
+      await assertCanUseAiDraft(memberData.organization_id);
+    } catch (quotaErr: any) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: quotaErr.code || 'AI_QUOTA_EXCEEDED',
+          message: quotaErr.message,
+          upgradePlan: quotaErr.upgradePlan || 'pro',
+        },
+        { status: 402 }
+      );
+    }
+
     const result = await processWhatsAppMessage({
       orgId: memberData.organization_id,
       messageText: message,
       externalMessageId,
     });
+
+    if (result.success) {
+      await recordBillableAction(memberData.organization_id, 'ai_draft');
+    }
 
     return NextResponse.json(result);
   } catch (err: any) {

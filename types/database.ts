@@ -334,19 +334,26 @@ export type TeamMemberDetails = OrganizationMember & {
   is_current_user?: boolean;
 };
 
-export type SubscriptionPlan = 'free' | 'growth' | 'enterprise';
+export type SubscriptionPlan = 'free' | 'pro' | 'business' | 'growth' | 'enterprise';
 
 export type SubscriptionInfo = {
   id?: string;
-  plan: SubscriptionPlan;
+  plan: 'free' | 'pro' | 'business';
   plan_name: string;
-  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'none';
   billing_cycle: 'monthly' | 'yearly';
   current_period_end?: string | null;
+  cancel_at_period_end?: boolean;
   max_invoices_per_month: number;
   max_team_members: number;
+  max_whatsapp_messages_per_month?: number;
+  max_ai_drafts_per_month?: number;
+  max_workspaces?: number;
   current_invoice_count: number;
   current_member_count: number;
+  current_whatsapp_count?: number;
+  current_ai_draft_count?: number;
+  current_workspace_count?: number;
 };
 
 export type SettingsData = {

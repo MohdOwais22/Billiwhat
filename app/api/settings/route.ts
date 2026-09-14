@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getSupabaseEnv } from '@/lib/supabase/config';
 import { SettingsData, TeamMemberDetails, SubscriptionInfo } from '@/types/database';
+import {
+  getOrganizationEntitlements,
+  assertCanUseTheme,
+  assertCanAddTeamMember,
+  updateOrganizationPlan,
+  cancelOrganizationSubscription,
+} from '@/lib/auth/entitlements';
 
 // Helper to authenticate user from Bearer header or cookies
 async function getAuthenticatedUser(req: NextRequest) {
@@ -161,16 +168,26 @@ export async function GET(req: NextRequest) {
 
     const invoiceCount = invoiceCountRes.count || 0;
 
+    const entitlements = await getOrganizationEntitlements(orgId);
+
     const subscription: SubscriptionInfo = {
-      plan: 'growth',
-      plan_name: 'Business Pro Plan',
-      status: 'active',
-      billing_cycle: 'yearly',
-      current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      max_invoices_per_month: 5000,
-      max_team_members: 10,
-      current_invoice_count: invoiceCount,
-      current_member_count: members.length,
+      id: orgId,
+      plan: entitlements.planId,
+      plan_name: entitlements.planName,
+      status: entitlements.status,
+      billing_cycle: entitlements.billingInterval,
+      current_period_end: entitlements.currentPeriodEnd,
+      cancel_at_period_end: entitlements.cancelAtPeriodEnd,
+      max_invoices_per_month: entitlements.limits.invoicesPerMonth,
+      max_team_members: entitlements.limits.maxTeamMembers,
+      max_whatsapp_messages_per_month: entitlements.limits.whatsappMessagesPerMonth,
+      max_ai_drafts_per_month: entitlements.limits.aiInvoiceDraftsPerMonth,
+      max_workspaces: entitlements.limits.maxWorkspaces,
+      current_invoice_count: Math.max(invoiceCount, entitlements.usage.invoicesThisMonth),
+      current_member_count: Math.max(members.length, entitlements.usage.activeMembers),
+      current_whatsapp_count: entitlements.usage.whatsappThisMonth,
+      current_ai_draft_count: entitlements.usage.aiDraftsThisMonth,
+      current_workspace_count: 1,
     };
 
     const responseData: SettingsData = {
@@ -376,6 +393,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'invoice_theme_id is required' }, { status: 400 });
       }
 
+      try {
+        await assertCanUseTheme(orgId, invoice_theme_id.trim());
+      } catch (themeErr: any) {
+        return NextResponse.json({
+          error: themeErr.message,
+          code: themeErr.code || 'FEATURE_NOT_INCLUDED',
+          upgradePlan: themeErr.upgradePlan || 'pro',
+        }, { status: 403 });
+      }
+
       const { data: updatedOrg, error: themeUpdateErr } = await adminSupabase
         .from('organizations')
         .update({
@@ -526,14 +553,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Mobile number and access role are required' }, { status: 400 });
       }
 
-      // Check current member count
-      const { count } = await adminSupabase
-        .from('organization_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', orgId);
-
-      if ((count || 0) >= 10) {
-        return NextResponse.json({ error: 'Team member limit reached for current plan (10 members max).' }, { status: 400 });
+      // Check team capacity using central entitlement rules
+      try {
+        await assertCanAddTeamMember(orgId);
+      } catch (entErr: any) {
+        return NextResponse.json({
+          error: entErr.message,
+          code: entErr.code || 'TEAM_LIMIT_REACHED',
+          upgradePlan: entErr.upgradePlan || 'pro',
+        }, { status: 402 });
       }
 
       // Validate 10-digit mobile number
@@ -754,6 +782,62 @@ export async function POST(req: NextRequest) {
       if (delErr) throw delErr;
 
       return NextResponse.json({ success: true, message: 'Member removed successfully' });
+    }
+
+    if (action === 'change_plan' || action === 'upgrade_plan') {
+      if (membership.role !== 'owner') {
+        return NextResponse.json({ error: 'Forbidden: Only organization owners can change the subscription plan' }, { status: 403 });
+      }
+
+      const { plan, billing_interval } = payload;
+      if (!plan || !['free', 'pro', 'business'].includes(plan)) {
+        return NextResponse.json({ error: 'Invalid plan. Must be free, pro, or business.' }, { status: 400 });
+      }
+
+      await updateOrganizationPlan({
+        organizationId: orgId,
+        targetPlan: plan,
+        billingInterval: billing_interval === 'yearly' ? 'yearly' : 'monthly',
+      });
+
+      const newEntitlements = await getOrganizationEntitlements(orgId);
+      return NextResponse.json({
+        success: true,
+        subscription: {
+          id: orgId,
+          plan: newEntitlements.planId,
+          plan_name: newEntitlements.planName,
+          status: newEntitlements.status,
+          billing_cycle: newEntitlements.billingInterval,
+          current_period_end: newEntitlements.currentPeriodEnd,
+          cancel_at_period_end: newEntitlements.cancelAtPeriodEnd,
+          max_invoices_per_month: newEntitlements.limits.invoicesPerMonth,
+          max_team_members: newEntitlements.limits.maxTeamMembers,
+          max_whatsapp_messages_per_month: newEntitlements.limits.whatsappMessagesPerMonth,
+          max_ai_drafts_per_month: newEntitlements.limits.aiInvoiceDraftsPerMonth,
+          max_workspaces: newEntitlements.limits.maxWorkspaces,
+          current_invoice_count: newEntitlements.usage.invoicesThisMonth,
+          current_member_count: newEntitlements.usage.activeMembers,
+          current_whatsapp_count: newEntitlements.usage.whatsappThisMonth,
+          current_ai_draft_count: newEntitlements.usage.aiDraftsThisMonth,
+          current_workspace_count: 1,
+        },
+      });
+    }
+
+    if (action === 'cancel_subscription') {
+      if (membership.role !== 'owner') {
+        return NextResponse.json({ error: 'Forbidden: Only organization owners can cancel subscription' }, { status: 403 });
+      }
+
+      await cancelOrganizationSubscription(orgId);
+      const updatedEntitlements = await getOrganizationEntitlements(orgId);
+      return NextResponse.json({
+        success: true,
+        message: 'Subscription renewal canceled. Your paid features remain active until the end of the billing period. No data will be deleted.',
+        cancel_at_period_end: true,
+        current_period_end: updatedEntitlements.currentPeriodEnd,
+      });
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

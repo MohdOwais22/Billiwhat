@@ -483,6 +483,24 @@ export async function addNewCustomer(params: {
 
   const orgId = memberData.organization_id;
 
+  // Check customer quota on Free plan (50 max)
+  const { data: subData } = await client
+    .from('organization_subscriptions')
+    .select('plan_id')
+    .eq('organization_id', orgId)
+    .maybeSingle();
+
+  if (!subData || subData.plan_id === 'free') {
+    const { count: custCount } = await client
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', orgId);
+
+    if ((custCount || 0) >= 50) {
+      throw new Error('Customer limit of 50 reached on the Free plan. Please upgrade to Pro for unlimited customers.');
+    }
+  }
+
   const trimmedBusiness = (params.businessName || params.companyName)?.trim() || '';
   const trimmedName = params.name?.trim() || '';
   const primaryName = trimmedBusiness || trimmedName;
@@ -781,6 +799,24 @@ export async function addNewProduct(params: {
   }
 
   const orgId = memberData.organization_id;
+
+  // Check product catalog quota on Free plan (50 max)
+  const { data: prodSub } = await client
+    .from('organization_subscriptions')
+    .select('plan_id')
+    .eq('organization_id', orgId)
+    .maybeSingle();
+
+  if (!prodSub || prodSub.plan_id === 'free') {
+    const { count: prodCount } = await client
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', orgId);
+
+    if ((prodCount || 0) >= 50) {
+      throw new Error('Product catalog limit of 50 items reached on the Free plan. Please upgrade to Pro for unlimited products.');
+    }
+  }
 
   const trimmedName = params.name?.trim() || '';
   if (!trimmedName) {
@@ -1516,6 +1552,31 @@ export async function createNewInvoice(params: {
 
   if (!memberData?.organization_id) {
     throw new Error('No organization found for current user session.');
+  }
+
+  // Monthly invoice limit enforcement
+  const orgId = memberData.organization_id;
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
+  const [{ count: monthlyInvoices }, { data: subInfo }] = await Promise.all([
+    client
+      .from('invoices')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .gte('created_at', startOfMonth),
+    client
+      .from('organization_subscriptions')
+      .select('plan_id, status')
+      .eq('organization_id', orgId)
+      .maybeSingle(),
+  ]);
+
+  const activePlan = subInfo?.plan_id || 'free';
+  const invoiceLimit = activePlan === 'business' ? 5000 : activePlan === 'pro' ? 500 : 30;
+
+  if ((monthlyInvoices || 0) >= invoiceLimit) {
+    const upgradeTier = activePlan === 'free' ? 'Pro (500 invoices/mo)' : 'Business (5,000 invoices/mo)';
+    throw new Error(`Monthly invoice limit of ${invoiceLimit} reached for the ${activePlan.toUpperCase()} plan. Upgrade to ${upgradeTier} to continue.`);
   }
 
   if (!params.items || params.items.length === 0) {

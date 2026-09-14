@@ -314,7 +314,7 @@ export function SettingsView({ onBackToDashboard, initialTab = 'business' }: Set
             )}
 
             {activeTab === 'subscription' && (
-              <SubscriptionSection subscription={data.subscription} />
+              <SubscriptionSection subscription={data.subscription} onRefresh={fetchSettings} />
             )}
           </div>
         </div>

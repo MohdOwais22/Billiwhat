@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, ArrowRight, Sparkles, HelpCircle } from 'lucide-react';
+import { Check, ArrowRight, Sparkles } from 'lucide-react';
 import { APP_NAME } from '@/config/brand';
+import { PLAN_CONFIG } from '@/lib/auth/entitlements';
 
 interface PricingSectionProps {
   onSelectPlan: (planName: string) => void;
@@ -13,60 +14,83 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
 
   const plans = [
     {
-      name: 'Starter',
-      price: billingCycle === 'monthly' ? '₹299' : '₹249',
+      id: 'free',
+      name: 'Free',
+      price: '₹0',
       period: '/month',
-      billedText: billingCycle === 'annual' ? 'Billed annually (save ₹600/yr)' : 'Billed monthly',
-      tagline: 'For small teams getting control of billing and receivables.',
+      effectivePrice: '₹0',
+      billedText: 'Free forever • No credit card required',
+      tagline: PLAN_CONFIG.free.tagline,
       isPopular: false,
-      ctaText: 'Start with Starter',
+      ctaText: 'Get Started Free',
       features: [
-        'Up to 150 invoices & credit notes / month',
-        'WhatsApp natural language order intake (Text & Voice)',
-        'GST & Non-GST tax invoicing with HSN lookups',
-        'Shareable PDF invoice links via WhatsApp',
-        'Basic receivables ledger & payment tracking',
-        'Single user access (Proprietor)',
-        'Standard email & chat assistance',
+        '30 tax invoices & bills / month',
+        '50 customer records & 50 catalog items',
+        '30 WhatsBill WhatsApp messages / month',
+        '15 AI voice & text invoice drafts / month',
+        '1 team seat (Proprietor access)',
+        '1 business workspace',
+        '2 invoice themes (Classic Ledger & Retail Compact)',
+        'Shareable PDF invoices via WhatsApp',
+        'Basic payment tracking & ledger',
       ],
+      watermarkNote: 'Includes WhatsBill footer watermark',
     },
     {
-      name: 'Business',
-      price: billingCycle === 'monthly' ? '₹699' : '₹579',
-      period: '/month',
-      billedText: billingCycle === 'annual' ? 'Billed annually (save ₹1,440/yr)' : 'Billed monthly',
-      tagline: 'For growing distributors who need automated collections.',
-      isPopular: true,
-      ctaText: 'Start with Business',
-      features: [
-        'Unlimited invoices, orders & credit notes',
-        'Advanced multilingual WhatsApp intake (Hinglish, Gujarati, Hindi)',
-        'Automated WhatsApp payment reminders with dynamic UPI QR',
-        'Priority Collection Queue & customer payment habit scoring',
-        'Live inventory tracking & low stock warnings',
-        'Multi-user team roles (Counter clerk, Sales rep, Accountant)',
-        'One-click Excel & accounting export',
-        'Priority WhatsApp support',
-      ],
-    },
-    {
+      id: 'pro',
       name: 'Pro',
-      price: billingCycle === 'monthly' ? '₹1,499' : '₹1,249',
+      price: billingCycle === 'monthly' ? '₹399' : '₹299',
       period: '/month',
-      billedText: billingCycle === 'annual' ? 'Billed annually (save ₹3,000/yr)' : 'Billed monthly',
-      tagline: 'For established businesses and teams with more operational needs.',
-      isPopular: false,
+      effectivePrice: '₹299',
+      billedText:
+        billingCycle === 'annual'
+          ? '₹3,588 billed yearly (Save ₹1,200/yr • ₹299/mo effective)'
+          : 'Billed monthly at ₹399/mo',
+      tagline: PLAN_CONFIG.pro.tagline,
+      isPopular: true,
       ctaText: 'Start with Pro',
       features: [
-        'Everything in Business plan included',
-        'Multi-branch and multi-GSTIN organization support',
-        'Dedicated WhatsApp Business API number connection',
-        'Custom invoice design templates with company watermark',
-        'Advanced customer credit risk limits & auto-hold rules',
-        'Comprehensive audit logs for all team operations',
-        'Dedicated account onboarding manager',
-        'Phone & priority escalation channel',
+        '500 tax invoices & bills / month',
+        'Unlimited customer records & catalog items',
+        '500 WhatsBill WhatsApp messages / month',
+        '150 AI voice & text invoice drafts / month',
+        'Up to 3 team members (Counter, Accountant, Admin)',
+        '1 business workspace',
+        'All 6 professional invoice themes',
+        'Whitelabel: WhatsBill watermark removed',
+        'One-click GSTR-1 & Raw Excel/CSV export',
+        'Automated WhatsApp payment reminders with dynamic UPI QR',
+        'Priority customer support',
       ],
+      watermarkNote: '100% Whitelabel — your brand only',
+    },
+    {
+      id: 'business',
+      name: 'Business',
+      price: billingCycle === 'monthly' ? '₹1,499' : '₹1,124',
+      period: '/month',
+      effectivePrice: '₹1,124',
+      billedText:
+        billingCycle === 'annual'
+          ? '₹13,488 billed yearly (Save ₹4,500/yr • ₹1,124/mo effective)'
+          : 'Billed monthly at ₹1,499/mo',
+      tagline: PLAN_CONFIG.business.tagline,
+      isPopular: false,
+      ctaText: 'Start with Business',
+      features: [
+        'Up to 5,000 tax invoices & bills / month',
+        'Unlimited customer records & catalog items',
+        '2,500 WhatsBill WhatsApp messages / month',
+        '600 AI voice & text invoice drafts / month',
+        'Up to 10 team seats with role permissions',
+        'Up to 5 business workspaces (CA / Multi-branch hub)',
+        'All 6 invoice themes + custom accent branding',
+        'Whitelabel: WhatsBill watermark removed',
+        'Advanced 30/60/90-day aging & customer payment habit scoring',
+        'Batch reminder dispatch & collection workflows',
+        'Dedicated onboarding & escalation support',
+      ],
+      watermarkNote: 'Multi-business hub & CA ready',
     },
   ];
 
@@ -80,11 +104,11 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Fair pricing for Indian wholesale trade.
+            Fair pricing for Indian wholesale & retail trade.
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            No hidden setup fees. Choose a plan based on your monthly order volume and team size.
+            No surprise add-ons. Exactly three customer tiers designed to scale with your invoice volume and team.
           </p>
 
           {/* Billing Cycle Switcher */}
@@ -118,13 +142,13 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
             >
               <span>Annual billing</span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Save ~18%
+                Save 25%
               </span>
             </span>
           </div>
         </div>
 
-        {/* 3 Pricing Cards */}
+        {/* 3 Customer Pricing Cards */}
         <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
           {plans.map((plan) => (
             <div
@@ -137,13 +161,20 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
             >
               {plan.isPopular && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold tracking-wide uppercase shadow-xs">
-                  Most Popular for Wholesalers
+                  Most Popular
                 </div>
               )}
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
+                    {plan.id === 'pro' && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <Sparkles className="w-3 h-3" /> Recommended
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500 mt-1 min-h-[32px]">{plan.tagline}</p>
                 </div>
 
@@ -155,7 +186,7 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
                     </span>
                     <span className="text-xs font-medium text-slate-500">{plan.period}</span>
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">{plan.billedText}</span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">{plan.billedText}</span>
                 </div>
 
                 {/* CTA Button */}
@@ -173,9 +204,14 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
 
                 {/* Features List */}
                 <div className="pt-4 border-t border-slate-100 space-y-2.5">
-                  <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
-                    What's included:
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
+                      Included in {plan.name}:
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400">
+                      {plan.watermarkNote}
+                    </span>
+                  </div>
                   {plan.features.map((feat) => (
                     <div key={feat} className="flex items-start gap-2 text-xs text-slate-600">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -188,17 +224,19 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
               {/* Card Footer */}
               <div className="mt-8 pt-4 border-t border-slate-100 text-center">
                 <span className="text-[11px] text-slate-400 font-medium">
-                  Free 14-day trial • No credit card needed
+                  {plan.id === 'free'
+                    ? 'Forever Free • Upgrade anytime'
+                    : 'Instant activation • Cancel anytime • Zero data loss'}
                 </span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Pricing Disclaimer Requirement */}
+        {/* Pricing Notice */}
         <div className="mt-12 text-center max-w-2xl mx-auto">
           <p className="text-xs text-slate-500">
-            * Plans shown are introductory pricing and may evolve as {APP_NAME} expands.
+            * All prices in Indian Rupees (INR). GST applicable as per prevailing tax regulations.
           </p>
         </div>
       </div>

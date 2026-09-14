@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServerClient } from '@supabase/ssr';
 import { getSupabaseEnv } from '@/lib/supabase/config';
+import { assertCanCreateWorkspace, resolveOrganizationSubscription } from '@/lib/auth/entitlements';
 
 const STATE_TO_CODE: Record<string, string> = {
   'Jammu and Kashmir': '01',
@@ -80,6 +81,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in before creating a workspace.' },
         { status: 401 }
+      );
+    }
+
+    // Check workspace capacity for user
+    try {
+      await assertCanCreateWorkspace(user.id);
+    } catch (wsErr: any) {
+      return NextResponse.json(
+        {
+          error: wsErr.message,
+          code: wsErr.code || 'WORKSPACE_LIMIT_REACHED',
+          upgradePlan: wsErr.upgradePlan || 'business',
+        },
+        { status: 402 }
       );
     }
 
@@ -165,6 +180,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (rpcResult && rpcResult.success) {
+      if (rpcResult.organization_id) {
+        await resolveOrganizationSubscription(rpcResult.organization_id);
+      }
       return NextResponse.json({
         success: true,
         organizationId: rpcResult.organization_id,

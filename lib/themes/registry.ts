@@ -1,17 +1,15 @@
 import { InvoiceTheme, ThemeCategory, ThemeID } from './types';
 import { ClassicLedgerTheme } from './renderers/ClassicLedgerTheme';
+import { TallyPrimeTheme } from './renderers/TallyPrimeTheme';
 import { GstProTheme } from './renderers/GstProTheme';
 import { BusinessClassicTheme } from './renderers/BusinessClassicTheme';
 import { ModernMinimalTheme } from './renderers/ModernMinimalTheme';
-import { ExecutiveTheme } from './renderers/ExecutiveTheme';
 import { RetailCompactTheme } from './renderers/RetailCompactTheme';
 import { A5CompactTheme } from './renderers/A5CompactTheme';
-import { WholesaleProTheme } from './renderers/WholesaleProTheme';
 import { ManufacturingTheme } from './renderers/ManufacturingTheme';
 import { ServiceProTheme } from './renderers/ServiceProTheme';
 import { ElegantTheme } from './renderers/ElegantTheme';
 import { WhatsAppCleanTheme } from './renderers/WhatsAppCleanTheme';
-import { DarkHeaderTheme } from './renderers/DarkHeaderTheme';
 import { MinimalGstTheme } from './renderers/MinimalGstTheme';
 import { MultiBranchTheme } from './renderers/MultiBranchTheme';
 
@@ -28,6 +26,17 @@ export const INVOICE_THEMES: Record<ThemeID, InvoiceTheme> = {
     previewAccentColor: '#0f172a',
     supportedFormats: ['print', 'pdf', 'screen'],
     component: ClassicLedgerTheme,
+  },
+  tally_prime: {
+    id: 'tally_prime',
+    name: 'Tally Prime ERP Style',
+    description: 'Authentic Tally Prime ERP tax invoice layout with double boxes, Sl No., HSN breakdown, and declaration.',
+    category: 'accounting',
+    density: 'compact',
+    paperSize: 'A4',
+    previewAccentColor: '#0284c7',
+    supportedFormats: ['print', 'pdf', 'screen'],
+    component: TallyPrimeTheme,
   },
   gst_pro: {
     id: 'gst_pro',
@@ -62,17 +71,6 @@ export const INVOICE_THEMES: Record<ThemeID, InvoiceTheme> = {
     supportedFormats: ['print', 'pdf', 'screen'],
     component: ModernMinimalTheme,
   },
-  executive: {
-    id: 'executive',
-    name: 'Executive Dark Accent',
-    description: 'Premium corporate appearance with a dark slate header, gold accent line, and crisp visual hierarchy.',
-    category: 'modern',
-    density: 'normal',
-    paperSize: 'A4',
-    previewAccentColor: '#0f172a',
-    supportedFormats: ['print', 'pdf', 'screen'],
-    component: ExecutiveTheme,
-  },
   retail_compact: {
     id: 'retail_compact',
     name: 'Retail Shop Compact',
@@ -94,17 +92,6 @@ export const INVOICE_THEMES: Record<ThemeID, InvoiceTheme> = {
     previewAccentColor: '#475569',
     supportedFormats: ['print', 'pdf', 'screen'],
     component: A5CompactTheme,
-  },
-  wholesale_pro: {
-    id: 'wholesale_pro',
-    name: 'Wholesale Distributor',
-    description: 'Trader focus featuring Qty, Unit, MRP, Wholesale Rate, Discount, and Tax columns.',
-    category: 'industry',
-    density: 'normal',
-    paperSize: 'A4',
-    previewAccentColor: '#1e1b4b',
-    supportedFormats: ['print', 'pdf', 'screen'],
-    component: WholesaleProTheme,
   },
   manufacturing: {
     id: 'manufacturing',
@@ -150,17 +137,6 @@ export const INVOICE_THEMES: Record<ThemeID, InvoiceTheme> = {
     supportedFormats: ['whatsapp', 'screen', 'pdf'],
     component: WhatsAppCleanTheme,
   },
-  dark_header: {
-    id: 'dark_header',
-    name: 'Dark Header Impact',
-    description: 'Deep charcoal header block for maximum visual impact, remaining 80% print-friendly white canvas.',
-    category: 'modern',
-    density: 'normal',
-    paperSize: 'A4',
-    previewAccentColor: '#020617',
-    supportedFormats: ['print', 'pdf', 'screen'],
-    component: DarkHeaderTheme,
-  },
   minimal_gst: {
     id: 'minimal_gst',
     name: 'Minimal GST Compliance',
@@ -202,16 +178,15 @@ export function getThemesByCategory(category: ThemeCategory): InvoiceTheme[] {
 
 export function recommendThemeFromPrompt(prompt: string): ThemeID {
   const p = prompt.toLowerCase();
+  if (p.includes('tally') || p.includes('prime') || p.includes('erp')) return 'tally_prime';
   if (p.includes('whatsapp') || p.includes('mobile') || p.includes('phone')) return 'whatsapp_clean';
   if (p.includes('gst') || p.includes('tax') || p.includes('hsn') || p.includes('b2b')) return 'gst_pro';
   if (p.includes('a5') || p.includes('half paper')) return 'a5_compact';
-  if (p.includes('wholesale') || p.includes('distributor') || p.includes('trader')) return 'wholesale_pro';
   if (p.includes('factory') || p.includes('manufacturing') || p.includes('gate pass')) return 'manufacturing';
   if (p.includes('service') || p.includes('consulting') || p.includes('agency')) return 'service_pro';
   if (p.includes('minimal') || p.includes('clean')) return 'modern_minimal';
   if (p.includes('elegant') || p.includes('luxury') || p.includes('premium')) return 'elegant';
   if (p.includes('retail') || p.includes('shop') || p.includes('counter')) return 'retail_compact';
   if (p.includes('branch') || p.includes('godown')) return 'multi_branch';
-  if (p.includes('executive') || p.includes('dark')) return 'executive';
   return DEFAULT_THEME_ID;
 }

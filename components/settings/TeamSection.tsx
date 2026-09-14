@@ -65,15 +65,21 @@ export function TeamSection({
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<OrganizationMember['role']>('accountant');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [operatingMemberId, setOperatingMemberId] = useState<string | null>(null);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail.trim()) return;
+    const inputVal = inviteEmail.trim();
+    if (!inputVal) {
+      setModalError('Please enter an email address or mobile number.');
+      return;
+    }
 
     setIsSubmitting(true);
+    setModalError(null);
     setActionStatus('idle');
     setStatusMessage('');
 
@@ -84,7 +90,7 @@ export function TeamSection({
         body: JSON.stringify({
           action: 'invite_member',
           payload: {
-            email: inviteEmail.trim(),
+            email: inputVal,
             display_name: inviteName.trim() || undefined,
             role: inviteRole,
           },
@@ -93,20 +99,22 @@ export function TeamSection({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to invite team member');
+        throw new Error(data.error || 'Failed to add team member');
       }
 
       setActionStatus('success');
-      setStatusMessage(data.message || `Invitation sent to ${inviteEmail}`);
+      setStatusMessage(data.message || `Member ${inputVal} successfully added to team.`);
       setInviteEmail('');
       setInviteName('');
+      setModalError(null);
       setShowInviteModal(false);
       onRefresh();
-      setTimeout(() => setActionStatus('idle'), 5000);
+      setTimeout(() => setActionStatus('idle'), 6000);
     } catch (err: any) {
       console.error('Error inviting team member:', err);
+      setModalError(err.message || 'Failed to add team member.');
       setActionStatus('error');
-      setStatusMessage(err.message || 'Failed to process invitation.');
+      setStatusMessage(err.message || 'Failed to process member addition.');
     } finally {
       setIsSubmitting(false);
     }
@@ -199,7 +207,10 @@ export function TeamSection({
 
         {canEdit && (
           <button
-            onClick={() => setShowInviteModal(true)}
+            onClick={() => {
+              setModalError(null);
+              setShowInviteModal(true);
+            }}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
             id="invite-member-btn"
           >
@@ -354,6 +365,16 @@ export function TeamSection({
             </div>
 
             <form onSubmit={handleInvite} className="mt-4 space-y-4">
+              {modalError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Unable to add member</p>
+                    <p className="text-[11px] text-rose-700 mt-0.5">{modalError}</p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="invite-name">
                   Full Name (Optional)
@@ -370,20 +391,23 @@ export function TeamSection({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="invite-email">
-                  Email Address <span className="text-rose-500">*</span>
+                  Email Address or Mobile Number <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     id="invite-email"
-                    type="email"
+                    type="text"
                     required
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="accountant@company.com"
+                    placeholder="e.g. accountant@company.com or 9876543210"
                     className="w-full pl-9 pr-3.5 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Enter an email address or 10-digit mobile number.
+                </p>
               </div>
 
               <div>

@@ -152,13 +152,15 @@ export function createCanonicalInvoiceViewModel(params: {
     items: canonicalItems,
     hsnSummary,
     totals,
-    bankDetails: {
-      accountName: seller.legalName || seller.name,
-      bankName: 'HDFC Bank Ltd',
-      accountNumber: '50200012345678',
-      ifscCode: 'HDFC0001234',
-      upiId: `${(seller.phone || 'whatsbill').replace(/[^0-9]/g, '')}@upi`,
-    },
+    bankDetails: (organization?.bank_name || organization?.bank_account_number || organization?.bank_ifsc_code || organization?.upi_id)
+      ? {
+          accountName: organization?.bank_account_name || seller.legalName || seller.name,
+          bankName: organization?.bank_name || '',
+          accountNumber: organization?.bank_account_number || '',
+          ifscCode: organization?.bank_ifsc_code || '',
+          upiId: organization?.upi_id || undefined,
+        }
+      : null,
     termsAndConditions:
       invoice.terms ||
       '1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within due date.\n3. Subject to local jurisdiction only.',

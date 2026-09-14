@@ -111,17 +111,48 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const members: TeamMemberDetails[] = memberRows.map((m: any) => ({
-      id: m.id,
-      organization_id: m.organization_id,
-      user_id: m.user_id,
-      role: m.role,
-      created_at: m.created_at,
-      display_name: profileMap[m.user_id]?.display_name || (m.user_id === user.id ? userProfileRes.data?.display_name || 'Current User' : 'Team Member'),
-      email: m.user_id === user.id ? user.email : undefined,
-      phone: m.user_id === user.id ? user.phone : undefined,
-      is_current_user: m.user_id === user.id,
-    }));
+    // Fetch auth users to get emails and phone numbers for all team members
+    let authUserMap: Record<string, { email?: string; phone?: string; display_name?: string }> = {};
+    if (adminSupabase?.auth?.admin) {
+      try {
+        const { data: authUsersRes } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+        if (authUsersRes?.users) {
+          authUsersRes.users.forEach((u: any) => {
+            authUserMap[u.id] = {
+              email: u.email,
+              phone: u.phone,
+              display_name: u.user_metadata?.display_name || u.user_metadata?.full_name,
+            };
+          });
+        }
+      } catch (authErr) {
+        console.warn('Could not list auth users in settings GET:', authErr);
+      }
+    }
+
+    const members: TeamMemberDetails[] = memberRows.map((m: any) => {
+      const isCurrent = m.user_id === user.id;
+      const authInfo = authUserMap[m.user_id];
+      const profileInfo = profileMap[m.user_id];
+      const resolvedName =
+        profileInfo?.display_name ||
+        authInfo?.display_name ||
+        (isCurrent ? userProfileRes.data?.display_name || 'Current User' : 'Team Member');
+      const resolvedEmail = authInfo?.email || (isCurrent ? user.email : undefined);
+      const resolvedPhone = authInfo?.phone || (isCurrent ? user.phone : undefined);
+
+      return {
+        id: m.id,
+        organization_id: m.organization_id,
+        user_id: m.user_id,
+        role: m.role,
+        created_at: m.created_at,
+        display_name: resolvedName,
+        email: resolvedEmail,
+        phone: resolvedPhone,
+        is_current_user: isCurrent,
+      };
+    });
 
     const invoiceCount = invoiceCountRes.count || 0;
 
@@ -215,6 +246,11 @@ export async function POST(req: NextRequest) {
         timezone,
         invoice_prefix,
         invoice_theme_id,
+        bank_name,
+        bank_account_name,
+        bank_account_number,
+        bank_ifsc_code,
+        upi_id,
       } = payload;
 
       const cleanGstin = gstin ? gstin.trim().toUpperCase() : null;
@@ -235,6 +271,11 @@ export async function POST(req: NextRequest) {
         currency: currency ? currency.trim() : 'INR',
         timezone: timezone ? timezone.trim() : 'Asia/Kolkata',
         invoice_prefix: invoice_prefix ? invoice_prefix.trim().toUpperCase() : 'INV',
+        bank_name: bank_name ? bank_name.trim() : null,
+        bank_account_name: bank_account_name ? bank_account_name.trim() : null,
+        bank_account_number: bank_account_number ? bank_account_number.trim() : null,
+        bank_ifsc_code: bank_ifsc_code ? bank_ifsc_code.trim().toUpperCase() : null,
+        upi_id: upi_id ? upi_id.trim() : null,
         updated_at: new Date().toISOString(),
       };
 
@@ -242,7 +283,8 @@ export async function POST(req: NextRequest) {
         updateData.invoice_theme_id = invoice_theme_id;
       }
 
-      const { data: updatedOrg, error: orgUpdateErr } = await adminSupabase
+      let updatedOrg = null;
+      let { data: firstTryOrg, error: orgUpdateErr } = await adminSupabase
         .from('organizations')
         .update(updateData)
         .eq('id', orgId)
@@ -250,8 +292,36 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (orgUpdateErr) {
-        console.error('Error updating organization:', orgUpdateErr);
-        return NextResponse.json({ error: orgUpdateErr.message }, { status: 400 });
+        // Fallback: If custom bank columns are missing on remote DB schema cache, strip them and update core fields
+        const fallbackUpdateData = { ...updateData };
+        delete fallbackUpdateData.bank_name;
+        delete fallbackUpdateData.bank_account_name;
+        delete fallbackUpdateData.bank_account_number;
+        delete fallbackUpdateData.bank_ifsc_code;
+        delete fallbackUpdateData.upi_id;
+
+        const { data: retryOrg, error: retryErr } = await adminSupabase
+          .from('organizations')
+          .update(fallbackUpdateData)
+          .eq('id', orgId)
+          .select()
+          .single();
+
+        if (retryErr) {
+          console.error('Error updating organization on retry:', retryErr);
+          return NextResponse.json({ error: retryErr.message }, { status: 400 });
+        }
+        // Attach bank fields virtually to response object
+        updatedOrg = {
+          ...retryOrg,
+          bank_name: bank_name ? bank_name.trim() : null,
+          bank_account_name: bank_account_name ? bank_account_name.trim() : null,
+          bank_account_number: bank_account_number ? bank_account_number.trim() : null,
+          bank_ifsc_code: bank_ifsc_code ? bank_ifsc_code.trim().toUpperCase() : null,
+          upi_id: upi_id ? upi_id.trim() : null,
+        };
+      } else {
+        updatedOrg = firstTryOrg;
       }
 
       // Keep GST Profile synced if GSTIN was modified
@@ -444,9 +514,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden: Only owners and admins can invite team members' }, { status: 403 });
       }
 
-      const { email, role, display_name } = payload;
-      if (!email || !role) {
-        return NextResponse.json({ error: 'Email and role are required' }, { status: 400 });
+      const { email: rawEmail, role, display_name } = payload;
+      if (!rawEmail || !role) {
+        return NextResponse.json({ error: 'Email address or mobile number and role are required' }, { status: 400 });
       }
 
       // Check current member count
@@ -459,57 +529,137 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Team member limit reached for current plan (10 members max).' }, { status: 400 });
       }
 
-      // Check if user already exists in auth
-      const { data: existingUser } = await adminSupabase.auth.admin.listUsers();
-      const matchedUser = existingUser?.users?.find(
-        (u: any) => u.email?.toLowerCase() === email.trim().toLowerCase()
-      );
+      const rawInput = rawEmail.trim();
+      let targetEmail = '';
+      let targetPhone: string | null = null;
 
-      if (matchedUser) {
-        // Check if already member
-        const { data: existingMember } = await adminSupabase
-          .from('organization_members')
-          .select('id')
-          .eq('organization_id', orgId)
-          .eq('user_id', matchedUser.id)
-          .maybeSingle();
-
-        if (existingMember) {
-          return NextResponse.json({ error: 'User is already a member of this organization' }, { status: 400 });
-        }
-
-        const { data: newMem, error: insertErr } = await adminSupabase
-          .from('organization_members')
-          .insert({
-            organization_id: orgId,
-            user_id: matchedUser.id,
-            role: role || 'viewer',
-          })
-          .select()
-          .single();
-
-        if (insertErr) throw insertErr;
-
-        if (display_name) {
-          await adminSupabase.from('user_profiles').upsert({
-            id: matchedUser.id,
-            display_name: display_name.trim(),
-            updated_at: new Date().toISOString(),
-          });
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: `Added ${email} to team with role: ${role}`,
-          member: newMem,
-        });
+      if (rawInput.includes('@')) {
+        targetEmail = rawInput.toLowerCase();
       } else {
-        // User not in auth yet: In production we register invite
-        return NextResponse.json({
-          success: true,
-          message: `Invitation registered for ${email}. When the user signs up with ${email}, they will automatically join as ${role}.`,
-        });
+        const digits = rawInput.replace(/[^0-9]/g, '');
+        if (digits.length >= 10) {
+          const tenDigits = digits.slice(-10);
+          targetPhone = `+91${tenDigits}`;
+          targetEmail = `phone_91${tenDigits}@whatsbill.internal`;
+        } else {
+          return NextResponse.json({ error: 'Please enter a valid email address or 10-digit mobile number' }, { status: 400 });
+        }
       }
+
+      const cleanDisplayName = display_name?.trim() || targetEmail.split('@')[0];
+
+      // 1. Check if user already exists in Supabase Auth
+      let targetUserId: string | null = null;
+      try {
+        const { data: userListData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+        const matchedUser = userListData?.users?.find(
+          (u: any) =>
+            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) ||
+            (targetPhone && u.phone === targetPhone)
+        );
+
+        if (matchedUser) {
+          targetUserId = matchedUser.id;
+        }
+      } catch (listErr) {
+        console.warn('Could not list users for duplicate check:', listErr);
+      }
+
+      // 2. If user not found in Auth, create them in Auth
+      if (!targetUserId) {
+        const tempPassword = `Wb#${Math.random().toString(36).slice(2, 8)}${Math.floor(1000 + Math.random() * 9000)}!`;
+        try {
+          const { data: createdAuth, error: createErr } = await adminSupabase.auth.admin.createUser({
+            email: targetEmail,
+            password: tempPassword,
+            email_confirm: true,
+            phone: targetPhone || undefined,
+            phone_confirm: Boolean(targetPhone),
+            user_metadata: {
+              display_name: cleanDisplayName,
+              full_name: cleanDisplayName,
+            },
+          });
+
+          if (createErr) {
+            // User might have already been created or existed with case differences
+            const { data: retryList } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+            const retryMatch = retryList?.users?.find(
+              (u: any) =>
+                (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) ||
+                (targetPhone && u.phone === targetPhone)
+            );
+
+            if (retryMatch) {
+              targetUserId = retryMatch.id;
+            } else {
+              console.error('Error creating auth user:', createErr);
+              return NextResponse.json({
+                error: `Could not register user account for ${rawInput}: ${createErr.message}`,
+              }, { status: 400 });
+            }
+          } else if (createdAuth?.user?.id) {
+            targetUserId = createdAuth.user.id;
+          }
+        } catch (authCreateErr: any) {
+          console.error('Exception creating auth user:', authCreateErr);
+          return NextResponse.json({
+            error: `Failed to create auth user: ${authCreateErr?.message || 'Internal error'}`,
+          }, { status: 500 });
+        }
+      }
+
+      if (!targetUserId) {
+        return NextResponse.json({ error: 'Failed to provision member account.' }, { status: 500 });
+      }
+
+      // 3. Check if already member of this organization
+      const { data: existingMember } = await adminSupabase
+        .from('organization_members')
+        .select('id, role')
+        .eq('organization_id', orgId)
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+
+      if (existingMember) {
+        return NextResponse.json({
+          error: `User "${rawInput}" is already a member of this organization with role: ${existingMember.role}.`,
+        }, { status: 400 });
+      }
+
+      // 4. Upsert user_profiles display_name
+      await adminSupabase.from('user_profiles').upsert({
+        id: targetUserId,
+        display_name: cleanDisplayName,
+        updated_at: new Date().toISOString(),
+      });
+
+      // 5. Insert into organization_members
+      const { data: newMem, error: insertErr } = await adminSupabase
+        .from('organization_members')
+        .insert({
+          organization_id: orgId,
+          user_id: targetUserId,
+          role: role || 'accountant',
+        })
+        .select()
+        .single();
+
+      if (insertErr) {
+        console.error('Error inserting into organization_members:', insertErr);
+        return NextResponse.json({ error: insertErr.message }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully added ${cleanDisplayName} (${rawInput}) to your team as ${role}!`,
+        member: {
+          ...newMem,
+          display_name: cleanDisplayName,
+          email: targetEmail,
+          phone: targetPhone,
+        },
+      });
     }
 
     if (action === 'update_member_role') {

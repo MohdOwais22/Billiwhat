@@ -32,6 +32,11 @@ export function BusinessSection({
     currency: organization.currency || 'INR',
     timezone: organization.timezone || 'Asia/Kolkata',
     invoice_prefix: organization.invoice_prefix || 'INV',
+    bank_name: organization.bank_name || '',
+    bank_account_name: organization.bank_account_name || '',
+    bank_account_number: organization.bank_account_number || '',
+    bank_ifsc_code: organization.bank_ifsc_code || '',
+    upi_id: organization.upi_id || '',
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -55,6 +60,11 @@ export function BusinessSection({
       currency: organization.currency || 'INR',
       timezone: organization.timezone || 'Asia/Kolkata',
       invoice_prefix: organization.invoice_prefix || 'INV',
+      bank_name: organization.bank_name || '',
+      bank_account_name: organization.bank_account_name || '',
+      bank_account_number: organization.bank_account_number || '',
+      bank_ifsc_code: organization.bank_ifsc_code || '',
+      upi_id: organization.upi_id || '',
     });
   }, [organization]);
 
@@ -403,6 +413,98 @@ export function BusinessSection({
                   className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-600 transition"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bank Account & UPI Details Section */}
+        <div className="pt-6 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Bank Account & Payment Settlement (Optional)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                If configured, these bank details appear on generated invoices for direct payment. If left blank, the Bank section is automatically hidden.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="bank-name-input">
+                Bank Name
+              </label>
+              <input
+                id="bank-name-input"
+                type="text"
+                disabled={!canEdit}
+                value={formData.bank_name}
+                onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                placeholder="e.g. HDFC Bank, ICICI Bank, SBI"
+                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="bank-account-name-input">
+                Account Holder Name
+              </label>
+              <input
+                id="bank-account-name-input"
+                type="text"
+                disabled={!canEdit}
+                value={formData.bank_account_name}
+                onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })}
+                placeholder="e.g. Legal Business / Trade Name"
+                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="bank-account-num-input">
+                Account Number
+              </label>
+              <input
+                id="bank-account-num-input"
+                type="text"
+                disabled={!canEdit}
+                value={formData.bank_account_number}
+                onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                placeholder="e.g. 50200012345678"
+                className="w-full px-3.5 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="bank-ifsc-input">
+                IFSC Code
+              </label>
+              <input
+                id="bank-ifsc-input"
+                type="text"
+                maxLength={11}
+                disabled={!canEdit}
+                value={formData.bank_ifsc_code}
+                onChange={(e) => setFormData({ ...formData, bank_ifsc_code: e.target.value.toUpperCase() })}
+                placeholder="e.g. HDFC0001234"
+                className="w-full px-3.5 py-2 text-xs font-mono uppercase bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 transition"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="bank-upi-input">
+                UPI ID / VPA (Optional)
+              </label>
+              <input
+                id="bank-upi-input"
+                type="text"
+                disabled={!canEdit}
+                value={formData.upi_id}
+                onChange={(e) => setFormData({ ...formData, upi_id: e.target.value.toLowerCase() })}
+                placeholder="e.g. 9876543210@upi or storename@icici"
+                className="w-full px-3.5 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 transition"
+              />
             </div>
           </div>
         </div>

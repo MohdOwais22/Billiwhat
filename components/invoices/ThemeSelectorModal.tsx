@@ -67,7 +67,7 @@ export function ThemeSelectorModal({
   };
 
   const categories = [
-    { id: 'all', label: 'All Themes (15)' },
+    { id: 'all', label: `All Themes (${allThemes.length})` },
     { id: 'accounting', label: 'Accounting' },
     { id: 'gst', label: 'GST B2B' },
     { id: 'modern', label: 'Modern & Clean' },

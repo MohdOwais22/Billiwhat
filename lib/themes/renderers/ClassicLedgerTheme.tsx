@@ -182,17 +182,22 @@ export const ClassicLedgerTheme: React.FC<InvoiceThemeProps> = ({ data, branding
       {/* Footer & Bank Box */}
       <div className="grid grid-cols-2 gap-3 text-xs border-2 border-slate-900 p-3">
         <div>
-          <p className="font-bold text-[10px] uppercase text-slate-500 mb-1">Bank Payment Details:</p>
           {bankDetails ? (
-            <div className="font-mono text-[11px] space-y-0.5 text-slate-800">
-              <p><span className="font-semibold text-slate-500">Bank:</span> {bankDetails.bankName}</p>
-              <p><span className="font-semibold text-slate-500">A/C Name:</span> {bankDetails.accountName}</p>
-              <p><span className="font-semibold text-slate-500">A/C No:</span> {bankDetails.accountNumber}</p>
-              <p><span className="font-semibold text-slate-500">IFSC Code:</span> {bankDetails.ifscCode}</p>
-              {bankDetails.upiId && <p><span className="font-semibold text-slate-500">UPI ID:</span> {bankDetails.upiId}</p>}
-            </div>
+            <>
+              <p className="font-bold text-[10px] uppercase text-slate-500 mb-1">Bank Payment Details:</p>
+              <div className="font-mono text-[11px] space-y-0.5 text-slate-800">
+                {bankDetails.bankName && <p><span className="font-semibold text-slate-500">Bank:</span> {bankDetails.bankName}</p>}
+                {bankDetails.accountName && <p><span className="font-semibold text-slate-500">A/C Name:</span> {bankDetails.accountName}</p>}
+                {bankDetails.accountNumber && <p><span className="font-semibold text-slate-500">A/C No:</span> {bankDetails.accountNumber}</p>}
+                {bankDetails.ifscCode && <p><span className="font-semibold text-slate-500">IFSC Code:</span> {bankDetails.ifscCode}</p>}
+                {bankDetails.upiId && <p><span className="font-semibold text-slate-500">UPI ID:</span> {bankDetails.upiId}</p>}
+              </div>
+            </>
           ) : (
-            <p className="text-slate-500 italic text-[11px]">Contact vendor for banking credentials.</p>
+            <div className="text-[11px] text-slate-700 italic space-y-1">
+              <p className="font-bold text-[10px] uppercase text-slate-500 not-italic">Terms & Conditions:</p>
+              <p className="whitespace-pre-line leading-tight">{data.termsAndConditions}</p>
+            </div>
           )}
         </div>
 

@@ -24,22 +24,20 @@ async function runThemeEngineVerificationSuite() {
   // TEST 1: Theme Registry Completeness
   console.log('--- TEST GROUP 1: Theme Registry Completeness ---');
   const allThemes = getAllThemes();
-  assert(allThemes.length === 15, `All 15 themes must be registered (Found: ${allThemes.length})`);
+  assert(allThemes.length === 13, `All 13 themes must be registered (Found: ${allThemes.length})`);
 
   const expectedIds: ThemeID[] = [
     'classic_ledger',
+    'tally_prime',
     'gst_pro',
     'business_classic',
     'modern_minimal',
-    'executive',
     'retail_compact',
     'a5_compact',
-    'wholesale_pro',
     'manufacturing',
     'service_pro',
     'elegant',
     'whatsapp_clean',
-    'dark_header',
     'minimal_gst',
     'multi_branch',
   ];

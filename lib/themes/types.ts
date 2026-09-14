@@ -10,18 +10,16 @@ import {
 
 export type ThemeID =
   | 'classic_ledger'
+  | 'tally_prime'
   | 'gst_pro'
   | 'business_classic'
   | 'modern_minimal'
-  | 'executive'
   | 'retail_compact'
   | 'a5_compact'
-  | 'wholesale_pro'
   | 'manufacturing'
   | 'service_pro'
   | 'elegant'
   | 'whatsapp_clean'
-  | 'dark_header'
   | 'minimal_gst'
   | 'multi_branch';
 

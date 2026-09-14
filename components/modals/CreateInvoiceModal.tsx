@@ -339,10 +339,10 @@ export function CreateInvoiceModal({
 
           {/* Party & Metadata Grid */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col sm:flex-row gap-4" style={{ gap: '16px' }}>
               {/* Customer Selection */}
-              <div className="min-w-0">
-                <div className="flex items-center justify-between mb-1">
+              <div className="flex-1 min-w-0 w-full">
+                <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold text-slate-700">
                     Billed Customer / Firm *
                   </label>
@@ -360,7 +360,7 @@ export function CreateInvoiceModal({
                   value={customerId}
                   onChange={(e) => handleCustomerChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  className="block w-full h-10 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   id="create-invoice-cust-select"
                 >
                   <option value="">-- Select Registered Customer --</option>
@@ -396,8 +396,8 @@ export function CreateInvoiceModal({
               </div>
 
               {/* Invoice Number */}
-              <div className="min-w-0">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <div className="sm:w-64 min-w-0 w-full">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Invoice Number
                 </label>
                 <input
@@ -405,18 +405,18 @@ export function CreateInvoiceModal({
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   placeholder={`Auto: ${nextSeqPreview}`}
-                  className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="block w-full h-10 px-3 py-2 text-xs font-mono border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   id="create-invoice-num-input"
                 />
-                <p className="text-[10px] text-slate-500 mt-0.5">
+                <p className="text-[10px] text-slate-500 mt-1">
                   Sequential next in sequence: <span className="font-mono font-bold text-slate-700">{nextSeqPreview}</span>
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+            <div className="flex flex-col sm:flex-row gap-4 items-start" style={{ gap: '16px' }}>
               {/* Invoice Date */}
-              <div className="min-w-0">
+              <div className="flex-1 min-w-0 w-full">
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Invoice Date *
                 </label>
@@ -425,13 +425,13 @@ export function CreateInvoiceModal({
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   required
-                  className="block w-full h-9 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium transition"
+                  className="block w-full h-10 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   id="create-invoice-date-input"
                 />
               </div>
 
               {/* Due Date */}
-              <div className="min-w-0">
+              <div className="flex-1 min-w-0 w-full">
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Due Date *
                 </label>
@@ -440,20 +440,20 @@ export function CreateInvoiceModal({
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   required
-                  className="block w-full h-9 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium transition"
+                  className="block w-full h-10 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   id="create-invoice-due-date"
                 />
               </div>
 
               {/* Place of Supply */}
-              <div className="min-w-0">
+              <div className="flex-1 min-w-0 w-full">
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Place of Supply (GST State) *
                 </label>
                 <select
                   value={placeOfSupply}
                   onChange={(e) => setPlaceOfSupply(e.target.value)}
-                  className="block w-full h-9 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium transition"
+                  className="block w-full h-10 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   id="create-invoice-pos-select"
                 >
                   {INDIAN_STATES.map((st) => (

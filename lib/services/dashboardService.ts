@@ -1396,34 +1396,52 @@ async function createInvoiceDirectFallback(
 
   const grandTotal = roundPaise(taxableAmountTotal + cgstTotal + sgstTotal + igstTotal + cessTotal);
 
-  const { data: newInv, error: invInsertErr } = await client
+  const baseInvoicePayload: Record<string, any> = {
+    organization_id: orgId,
+    customer_id: params.customerId,
+    invoice_number: invoiceNumber,
+    invoice_type: params.invoiceType || 'tax_invoice',
+    status: params.status || 'issued',
+    issue_date: params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0],
+    due_date: params.dueDate || null,
+    subtotal: roundPaise(subtotal),
+    discount_total: roundPaise(discountTotal),
+    taxable_amount: roundPaise(taxableAmountTotal),
+    cgst: roundPaise(cgstTotal),
+    sgst: roundPaise(sgstTotal),
+    igst: roundPaise(igstTotal),
+    cess: roundPaise(cessTotal),
+    total: grandTotal,
+    place_of_supply: pos,
+    notes: params.notes || null,
+    terms: params.terms || null,
+    source: 'web',
+    created_by: userId,
+  };
+
+  let { data: newInv, error: invInsertErr } = await client
     .from('invoices')
-    .insert({
-      organization_id: orgId,
-      customer_id: params.customerId,
-      invoice_number: invoiceNumber,
-      invoice_type: params.invoiceType || 'tax_invoice',
-      status: params.status || 'issued',
-      issue_date: params.issueDate || params.invoiceDate || new Date().toISOString().split('T')[0],
-      due_date: params.dueDate,
-      subtotal: roundPaise(subtotal),
-      discount_total: roundPaise(discountTotal),
-      taxable_amount: roundPaise(taxableAmountTotal),
-      cgst: roundPaise(cgstTotal),
-      sgst: roundPaise(sgstTotal),
-      igst: roundPaise(igstTotal),
-      cess: roundPaise(cessTotal),
-      total: grandTotal,
-      amount_paid: 0,
-      balance_due: grandTotal,
-      place_of_supply: pos,
-      notes: params.notes || null,
-      terms: params.terms || null,
-      source: 'web',
-      created_by: userId,
-    })
+    .insert(baseInvoicePayload)
     .select('*')
     .single();
+
+  if (invInsertErr) {
+    console.warn('First fallback insert attempt error:', invInsertErr.message);
+    // Strip optional fields that might not exist in some table schema variations
+    const safePayload = { ...baseInvoicePayload };
+    delete safePayload.discount_total;
+    delete safePayload.source;
+    delete safePayload.created_by;
+
+    const retryRes = await client
+      .from('invoices')
+      .insert(safePayload)
+      .select('*')
+      .single();
+
+    newInv = retryRes.data;
+    invInsertErr = retryRes.error;
+  }
 
   if (invInsertErr || !newInv) {
     throw new Error(invInsertErr?.message || 'Failed to insert invoice record.');
@@ -1605,18 +1623,22 @@ async function recordPaymentDirectFallback(
   }
 
   if (params.invoiceId) {
+    const { data: existingPayments } = await client
+      .from('payments')
+      .select('amount')
+      .eq('invoice_id', params.invoiceId);
+
     const { data: inv } = await client
       .from('invoices')
-      .select('total, amount_paid')
+      .select('total')
       .eq('id', params.invoiceId)
       .single();
 
     if (inv) {
-      const currentPaid = Number(inv.amount_paid || 0);
-      const newPaid = currentPaid + amount;
+      const currentPaid = (existingPayments || []).reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
       const invTotal = Number(inv.total || 0);
       let newStatus = 'partially_paid';
-      if (newPaid >= invTotal) {
+      if (currentPaid >= invTotal) {
         newStatus = 'paid';
       }
 
@@ -1624,8 +1646,6 @@ async function recordPaymentDirectFallback(
         .from('invoices')
         .update({
           status: newStatus,
-          amount_paid: newPaid,
-          balance_due: Math.max(0, invTotal - newPaid),
         })
         .eq('id', params.invoiceId);
     }

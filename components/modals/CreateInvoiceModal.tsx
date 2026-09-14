@@ -337,20 +337,21 @@ export function CreateInvoiceModal({
             </div>
           )}
 
-          {/* Party & Metadata Grid */}
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4" style={{ gap: '16px' }}>
+          {/* Party & Metadata Details Card */}
+          <div className="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col" style={{ gap: '16px' }}>
+            {/* Top Row: Customer & Invoice Number */}
+            <div className="flex flex-col sm:flex-row" style={{ gap: '16px' }}>
               {/* Customer Selection */}
-              <div className="flex-1 min-w-0 w-full">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold text-slate-700">
-                    Billed Customer / Firm *
+                    Billed Customer / Firm <span className="text-rose-500">*</span>
                   </label>
                   {onOpenAddCustomer && (
                     <button
                       type="button"
                       onClick={onOpenAddCustomer}
-                      className="text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
                     >
                       + Add New Customer
                     </button>
@@ -376,7 +377,7 @@ export function CreateInvoiceModal({
                   const cust = customers.find((c) => c.id === customerId);
                   if (!cust) return null;
                   return (
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-600 flex-wrap">
+                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-600 flex-wrap">
                       {cust.credit_limit ? (
                         <span>Credit Limit: <strong className="font-mono text-slate-900">{formatINR(cust.credit_limit)}</strong></span>
                       ) : (
@@ -396,7 +397,7 @@ export function CreateInvoiceModal({
               </div>
 
               {/* Invoice Number */}
-              <div className="sm:w-64 min-w-0 w-full">
+              <div className="w-full sm:w-60 min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Invoice Number
                 </label>
@@ -409,17 +410,17 @@ export function CreateInvoiceModal({
                   id="create-invoice-num-input"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Sequential next in sequence: <span className="font-mono font-bold text-slate-700">{nextSeqPreview}</span>
+                  Next in sequence: <span className="font-mono font-bold text-slate-700">{nextSeqPreview}</span>
                 </p>
               </div>
             </div>
 
-            {/* Dates Row: 2-Column Clean Layout */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Bottom Row: 3 Clean Spaced Columns for Invoice Date, Due Date, and Place of Supply */}
+            <div className="flex flex-col sm:flex-row" style={{ gap: '16px' }}>
               {/* Invoice Date */}
-              <div>
+              <div className="flex-1 min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Invoice Date *
+                  Invoice Date <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -432,9 +433,9 @@ export function CreateInvoiceModal({
               </div>
 
               {/* Due Date */}
-              <div>
+              <div className="flex-1 min-w-0">
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Due Date *
+                  Due Date <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -445,36 +446,36 @@ export function CreateInvoiceModal({
                   id="create-invoice-due-date"
                 />
               </div>
-            </div>
 
-            {/* Place of Supply Row */}
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1.5">
-                <label className="text-xs font-semibold text-slate-700">
-                  Place of Supply (GST State) *
-                </label>
-                {isInterState ? (
-                  <span className="inline-flex items-center text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                    Inter-State (IGST Applicable)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Intra-State (CGST + SGST Applicable)
-                  </span>
-                )}
+              {/* Place of Supply */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Place of Supply <span className="text-rose-500">*</span>
+                  </label>
+                  {isInterState ? (
+                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                      IGST (Inter-State)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      CGST + SGST (Intra-State)
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={placeOfSupply}
+                  onChange={(e) => setPlaceOfSupply(e.target.value)}
+                  className="block w-full h-10 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  id="create-invoice-pos-select"
+                >
+                  {INDIAN_STATES.map((st) => (
+                    <option key={st.code} value={st.code}>
+                      {st.code} - {st.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={placeOfSupply}
-                onChange={(e) => setPlaceOfSupply(e.target.value)}
-                className="block w-full h-10 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
-                id="create-invoice-pos-select"
-              >
-                {INDIAN_STATES.map((st) => (
-                  <option key={st.code} value={st.code}>
-                    {st.code} - {st.name}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 
